@@ -1,0 +1,17 @@
+server:
+  http_port: 8080
+  websocket_port: 8081
+
+database:
+  host: localhost
+  port: 3306
+  user: root
+  password: your_password
+  dbname: outage_drill
+
+jwt:
+  secret: your-secret-key-change-in-production
+  expire_hours: 24
+
+wechat:
+  webhook_url: ""

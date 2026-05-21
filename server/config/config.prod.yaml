@@ -1,0 +1,17 @@
+server:
+  http_port: 8080
+  websocket_port: 8081
+
+database:
+  host: mysql-prod-server
+  port: 3306
+  user: prod_user
+  password: prod_password_change_this
+  dbname: outage_drill_prod
+
+jwt:
+  secret: production-secret-key-change-this-in-production
+  expire_hours: 24
+
+wechat:
+  webhook_url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your-production-key
