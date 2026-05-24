@@ -43,6 +43,7 @@ func (s *DrillService) CreateDrill(templateID uint, name string, createdBy uint)
 		return nil, err
 	}
 
+	// 修复：检查创建步骤执行记录的错误
 	for _, step := range template.Steps {
 		execution := &model.StepExecution{
 			DrillID:   drill.ID,
@@ -50,7 +51,10 @@ func (s *DrillService) CreateDrill(templateID uint, name string, createdBy uint)
 			StepName:  step.Name,
 			Status:    "pending",
 		}
-		s.executionRepo.Create(execution)
+		if err := s.executionRepo.Create(execution); err != nil {
+			// 如果创建步骤执行记录失败，返回错误
+			return nil, errors.New("failed to create step execution: " + err.Error())
+		}
 	}
 
 	return drill, nil

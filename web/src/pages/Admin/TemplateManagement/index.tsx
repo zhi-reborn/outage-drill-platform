@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Table, Button, Modal, Form, Input, Space, message, Popconfirm, Card, Typography } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Modal, Form, Input, Space, message, Popconfirm, Card, Typography, Alert, Tabs } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ApartmentOutlined } from '@ant-design/icons'
 import { drillService } from '../../../services/drill'
 import { DrillTemplate } from '../../../types'
+import WorkflowTemplateEditor from '../../../components/WorkflowTemplateEditor'
+import WorkflowVisualization from '../../../components/WorkflowVisualization'
 
 const { TextArea } = Input
 const { Text } = Typography
@@ -18,24 +20,47 @@ interface StepFormData {
 const TemplateManagement: React.FC = () => {
   const [templates, setTemplates] = useState<DrillTemplate[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>('')
   const [modalVisible, setModalVisible] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<DrillTemplate | null>(null)
   const [steps, setSteps] = useState<StepFormData[]>([])
   const [form] = Form.useForm()
+  const [workflowModalVisible, setWorkflowModalVisible] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
 
   useEffect(() => {
+    console.log('TemplateManagement: 组件加载,开始获取模板数据')
     loadTemplates()
   }, [])
 
   const loadTemplates = async () => {
     setLoading(true)
+    setError('')
+    
+    console.log('loadTemplates: 开始调用API')
+    
     try {
       const data = await drillService.getTemplates()
-      setTemplates(data)
-    } catch (error) {
+      console.log('loadTemplates: API返回数据:', data)
+      console.log('loadTemplates: 数据长度:', data?.length)
+      
+      if (data && data.length > 0) {
+        setTemplates(data)
+        console.log('loadTemplates: 设置templates成功')
+      } else {
+        console.log('loadTemplates: 数据为空或长度为0')
+        setTemplates([])
+        setError('没有找到模板数据')
+      }
+    } catch (error: any) {
+      console.error('loadTemplates: API调用失败:', error)
+      console.error('loadTemplates: 错误详情:', error.response?.data)
+      setError(error.response?.data?.error || error.message || '加载模板列表失败')
       message.error('加载模板列表失败')
     }
+    
     setLoading(false)
+    console.log('loadTemplates: 完成,loading设置为false')
   }
 
   const handleCreate = () => {
@@ -51,13 +76,13 @@ const TemplateManagement: React.FC = () => {
       name: template.name,
       description: template.description,
     })
-    setSteps(template.steps.map(s => ({
+    setSteps(template.steps?.map(s => ({
       order: s.order,
       name: s.name,
       description: s.description,
       timeout_minutes: s.timeout_minutes,
       guide: s.guide,
-    })))
+    })) || [])
     setModalVisible(true)
   }
 
@@ -121,6 +146,20 @@ const TemplateManagement: React.FC = () => {
     }
   }
 
+  const handleRefresh = () => {
+    console.log('handleRefresh: 手动刷新')
+    loadTemplates()
+  }
+
+  const handleOpenWorkflowEditor = (templateId: number) => {
+    setSelectedTemplateId(templateId)
+    setWorkflowModalVisible(true)
+  }
+
+  console.log('TemplateManagement: 当前templates状态:', templates)
+  console.log('TemplateManagement: 当前loading状态:', loading)
+  console.log('TemplateManagement: 当前error状态:', error)
+
   const columns = [
     {
       title: 'ID',
@@ -153,6 +192,12 @@ const TemplateManagement: React.FC = () => {
       key: 'action',
       render: (_: any, record: DrillTemplate) => (
         <Space>
+          <Button 
+            icon={<ApartmentOutlined />} 
+            onClick={() => handleOpenWorkflowEditor(record.id)}
+          >
+            层级结构
+          </Button>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             编辑
           </Button>
@@ -172,17 +217,49 @@ const TemplateManagement: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          新增模板
-        </Button>
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            新增模板
+          </Button>
+          <Button onClick={handleRefresh} loading={loading}>
+            刷新数据
+          </Button>
+        </Space>
       </div>
+
+      {error && (
+        <Alert 
+          message="错误提示" 
+          description={error}
+          type="error"
+          closable
+          onClose={() => setError('')}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {templates.length === 0 && !loading && !error && (
+        <Alert 
+          message="提示" 
+          description="暂无模板数据，请点击'新增模板'创建"
+          type="info"
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Table
         columns={columns}
         dataSource={templates}
         rowKey="id"
         loading={loading}
+        pagination={false}
       />
+
+      <div style={{ marginTop: 16 }}>
+        <Text type="secondary">
+          当前显示 {templates.length} 个模板
+        </Text>
+      </div>
 
       <Modal
         title={editingTemplate ? '编辑模板' : '新增模板'}
@@ -244,6 +321,31 @@ const TemplateManagement: React.FC = () => {
             ))}
           </Card>
         </Form>
+      </Modal>
+
+      <Modal
+        title="层级结构编辑器"
+        open={workflowModalVisible}
+        onCancel={() => setWorkflowModalVisible(false)}
+        footer={null}
+        width={1200}
+        style={{ top: 20 }}
+      >
+        {selectedTemplateId && (
+          <Tabs defaultActiveKey="editor">
+            <Tabs.TabPane tab="编辑器" key="editor">
+              <WorkflowTemplateEditor 
+                templateId={selectedTemplateId}
+                onSave={() => {
+                  loadTemplates()
+                }}
+              />
+            </Tabs.TabPane>
+            <Tabs.TabPane tab="可视化" key="visualization">
+              <WorkflowVisualization templateId={selectedTemplateId} />
+            </Tabs.TabPane>
+          </Tabs>
+        )}
       </Modal>
     </div>
   )

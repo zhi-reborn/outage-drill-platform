@@ -2,6 +2,34 @@
 
 本指南将帮助您快速启动和运行断网断电演练平台。
 
+## ⚡ 快速解决MySQL连接问题
+
+如果您遇到 `dial tcp [::1]:3306: connect: connection refused` 错误:
+
+### 快速解决方案
+
+```bash
+# 方案1: 使用自动化脚本(推荐)
+./scripts/setup_mysql.sh
+
+# 方案2: 手动启动MySQL
+# macOS
+brew services start mysql || mysql.server start
+
+# Linux
+sudo systemctl start mysql
+
+# 方案3: 使用Docker(最简单)
+docker run -d --name mysql-drill \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=outage_drill \
+  -p 3306:3306 mysql:8.0
+```
+
+详细说明请查看: [docs/mysql_setup.md](docs/mysql_setup.md)
+
+---
+
 ## 📋 前置要求
 
 ### 必需软件

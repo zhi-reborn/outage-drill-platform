@@ -101,6 +101,36 @@ func (h *ExecutionHandler) StartExecution(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "execution started"})
 }
 
+func (h *ExecutionHandler) PauseExecution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid execution id"})
+		return
+	}
+
+	if err := h.executionSvc.PauseExecution(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "execution paused"})
+}
+
+func (h *ExecutionHandler) ResumeExecution(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid execution id"})
+		return
+	}
+
+	if err := h.executionSvc.ResumeExecution(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "execution resumed"})
+}
+
 func (h *ExecutionHandler) CompleteExecution(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

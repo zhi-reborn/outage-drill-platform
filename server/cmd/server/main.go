@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gin-gonic/gin"
@@ -31,12 +32,17 @@ func main() {
 	drillRepo := repository.NewDrillRepository(database)
 	executionRepo := repository.NewExecutionRepository(database)
 	messageRepo := repository.NewMessageRepository(database)
+	phaseRepo := repository.NewPhaseRepository(database)
+	stageRepo := repository.NewStageRepository(database)
+	taskRepo := repository.NewTaskRepository(database)
+	operationRepo := repository.NewOperationRepository(database)
 
 	userSvc := service.NewUserService(userRepo)
 	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret, cfg.JWT.ExpireHours)
 	templateSvc := service.NewTemplateService(templateRepo)
 	drillSvc := service.NewDrillService(drillRepo, templateRepo, executionRepo)
 	executionSvc := service.NewExecutionService(executionRepo, drillRepo)
+	workflowSvc := service.NewWorkflowService(phaseRepo, stageRepo, taskRepo, operationRepo, templateRepo)
 
 	wechatClient := wechatPkg.NewWebhookClient(cfg.WeChat.WebhookURL)
 	notificationSvc := service.NewNotificationService(messageRepo, wechatClient)
@@ -55,6 +61,7 @@ func main() {
 	executionHandler := handler.NewExecutionHandler(executionSvc)
 	webhookHandler := handler.NewWebhookHandler(notificationSvc)
 	wsHandler := handler.NewWebSocketHandler(hub)
+	workflowHandler := handler.NewWorkflowHandler(workflowSvc)
 
 	api := router.Group("/api")
 	{
@@ -105,6 +112,8 @@ func main() {
 			executions.GET("/drill/:drill_id", executionHandler.GetDrillExecutions)
 			executions.POST("/:id/assign", middleware.RequireRole("admin", "commander"), executionHandler.AssignStep)
 			executions.POST("/:id/start", executionHandler.StartExecution)
+			executions.POST("/:id/pause", executionHandler.PauseExecution)
+			executions.POST("/:id/resume", executionHandler.ResumeExecution)
 			executions.POST("/:id/complete", executionHandler.CompleteExecution)
 		}
 
@@ -122,6 +131,56 @@ func main() {
 				wsHandler.HandleWebSocket(c)
 			})
 		}
+
+		workflow := api.Group("/workflow")
+		workflow.Use(middleware.AuthMiddleware(authSvc))
+		{
+			// Phase routes
+			workflow.GET("/phases/:id", workflowHandler.GetPhase)
+			workflow.GET("/phases/:id/stages", workflowHandler.GetPhaseWithStages)
+			workflow.GET("/templates/:template_id/phases", workflowHandler.GetTemplatePhases)
+			workflow.POST("/phases", middleware.RequireRole("admin"), workflowHandler.CreatePhase)
+			workflow.PUT("/phases/:id", middleware.RequireRole("admin"), workflowHandler.UpdatePhase)
+			workflow.DELETE("/phases/:id", middleware.RequireRole("admin"), workflowHandler.DeletePhase)
+			workflow.POST("/phases/:id/start", middleware.RequireRole("admin", "commander"), workflowHandler.StartPhase)
+			workflow.POST("/phases/:id/complete", middleware.RequireRole("admin", "commander"), workflowHandler.CompletePhase)
+
+			// Stage routes
+			workflow.GET("/stages/:id", workflowHandler.GetStage)
+			workflow.GET("/stages/:id/tasks", workflowHandler.GetStageWithTasks)
+			workflow.GET("/stages/by-phase/:phase_id", workflowHandler.GetPhaseStages)
+			workflow.POST("/stages", middleware.RequireRole("admin"), workflowHandler.CreateStage)
+			workflow.PUT("/stages/:id", middleware.RequireRole("admin"), workflowHandler.UpdateStage)
+			workflow.DELETE("/stages/:id", middleware.RequireRole("admin"), workflowHandler.DeleteStage)
+			workflow.POST("/stages/:id/start", middleware.RequireRole("admin", "commander"), workflowHandler.StartStage)
+			workflow.POST("/stages/:id/complete", middleware.RequireRole("admin", "commander"), workflowHandler.CompleteStage)
+
+			// Task routes
+			workflow.GET("/tasks/:id", workflowHandler.GetTask)
+			workflow.GET("/tasks/:id/operations", workflowHandler.GetTaskWithOperations)
+			workflow.GET("/tasks/:id/details", workflowHandler.GetTaskWithDetails)
+			workflow.GET("/tasks/by-stage/:stage_id", workflowHandler.GetStageTasks)
+			workflow.POST("/tasks", middleware.RequireRole("admin"), workflowHandler.CreateTask)
+			workflow.PUT("/tasks/:id", middleware.RequireRole("admin"), workflowHandler.UpdateTask)
+			workflow.DELETE("/tasks/:id", middleware.RequireRole("admin"), workflowHandler.DeleteTask)
+			workflow.POST("/tasks/:id/start", workflowHandler.StartTask)
+			workflow.POST("/tasks/:id/pause", workflowHandler.PauseTask)
+			workflow.POST("/tasks/:id/complete", workflowHandler.CompleteTask)
+
+			// Operation routes
+			workflow.GET("/operations/:id", workflowHandler.GetOperation)
+			workflow.GET("/operations/:id/details", workflowHandler.GetOperationWithDetails)
+			workflow.GET("/operations/by-task/:task_id", workflowHandler.GetTaskOperations)
+			workflow.POST("/operations", middleware.RequireRole("admin"), workflowHandler.CreateOperation)
+			workflow.PUT("/operations/:id", middleware.RequireRole("admin"), workflowHandler.UpdateOperation)
+			workflow.DELETE("/operations/:id", middleware.RequireRole("admin"), workflowHandler.DeleteOperation)
+			workflow.POST("/operations/:id/start", workflowHandler.StartOperation)
+			workflow.POST("/operations/:id/pause", workflowHandler.PauseOperation)
+			workflow.POST("/operations/:id/complete", workflowHandler.CompleteOperation)
+
+			// Full hierarchy
+			workflow.GET("/templates/:template_id/hierarchy", workflowHandler.GetTemplateFullHierarchy)
+		}
 	}
 
 	router.Static("/assets", "./static/assets")
@@ -130,7 +189,7 @@ func main() {
 	})
 
 	log.Printf("Starting HTTP server on port %d", cfg.Server.HTTPPort)
-	if err := router.Run(":8080"); err != nil {
+	if err := router.Run(fmt.Sprintf(":%d", cfg.Server.HTTPPort)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

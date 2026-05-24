@@ -33,7 +33,13 @@ type DrillTemplate struct {
 	ID          uint            `gorm:"primaryKey" json:"id"`
 	Name        string          `gorm:"size:100;not null" json:"name"`
 	Description string          `gorm:"type:text" json:"description"`
-	Steps       StepDefinitions `gorm:"type:json;not null" json:"steps"`
+	
+	// 保留原有Steps字段以兼容现有数据
+	Steps       StepDefinitions `gorm:"type:json" json:"steps"`
+	
+	// 新增：层级结构
+	Phases      []*Phase        `gorm:"foreignKey:TemplateID" json:"phases,omitempty"`
+	
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
 }

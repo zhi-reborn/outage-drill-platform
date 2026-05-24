@@ -54,14 +54,47 @@ func (s *ExecutionService) StartExecution(id uint) error {
 		return err
 	}
 
-	if execution.Status != "pending" {
-		return errors.New("can only start pending steps")
+	if execution.Status != "pending" && execution.Status != "paused" {
+		return errors.New("can only start pending or paused steps")
 	}
 
 	now := time.Now()
+	
+	// 修复：先判断原始状态，再修改状态
+	// 只有从pending状态开始时才设置开始时间
+	if execution.Status == "pending" {
+		execution.StartTime = &now
+	}
+	
 	execution.Status = "in_progress"
-	execution.StartTime = &now
+	return s.executionRepo.Update(execution)
+}
 
+func (s *ExecutionService) PauseExecution(id uint) error {
+	execution, err := s.executionRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	if execution.Status != "in_progress" {
+		return errors.New("can only pause in-progress steps")
+	}
+
+	execution.Status = "paused"
+	return s.executionRepo.Update(execution)
+}
+
+func (s *ExecutionService) ResumeExecution(id uint) error {
+	execution, err := s.executionRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	if execution.Status != "paused" {
+		return errors.New("can only resume paused steps")
+	}
+
+	execution.Status = "in_progress"
 	return s.executionRepo.Update(execution)
 }
 

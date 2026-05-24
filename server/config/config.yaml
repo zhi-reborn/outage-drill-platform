@@ -1,12 +1,12 @@
 server:
-  http_port: 8080
-  websocket_port: 8081
+  http_port: 8082
+  websocket_port: 8083
 
 database:
   host: localhost
   port: 3306
   user: root
-  password: your_password
+  password: 
   dbname: outage_drill
 
 jwt:

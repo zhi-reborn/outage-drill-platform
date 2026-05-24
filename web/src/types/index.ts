@@ -1,6 +1,7 @@
 export interface User {
   id: number
   username: string
+  password?: string
   name: string
   role: 'admin' | 'commander' | 'participant'
   created_at: string
@@ -80,4 +81,99 @@ export interface WebSocketMessage {
   user_id?: number
   data?: any
   timestamp?: string
+}
+
+// New workflow hierarchy types
+export interface Phase {
+  id: number
+  template_id: number
+  name: string
+  description: string
+  order: number
+  execution_mode: 'serial' | 'parallel'
+  status: 'pending' | 'in_progress' | 'completed'
+  estimated_start_time?: string
+  estimated_end_time?: string
+  actual_start_time?: string
+  actual_end_time?: string
+  duration_seconds: number
+  created_at: string
+  updated_at: string
+  template?: DrillTemplate
+  stages?: Stage[]
+}
+
+export interface Stage {
+  id: number
+  phase_id: number
+  name: string
+  description: string
+  order: number
+  execution_mode: 'serial' | 'parallel'
+  status: 'pending' | 'in_progress' | 'completed'
+  estimated_start_time?: string
+  estimated_end_time?: string
+  actual_start_time?: string
+  actual_end_time?: string
+  duration_seconds: number
+  created_at: string
+  updated_at: string
+  phase?: Phase
+  tasks?: Task[]
+}
+
+export interface Task {
+  id: number
+  stage_id: number
+  name: string
+  description: string
+  order: number
+  execution_mode: 'serial' | 'parallel'
+  status: 'pending' | 'in_progress' | 'paused' | 'completed'
+  department: string
+  responsible_person_id?: number
+  executor_id?: number
+  reviewer_id?: number
+  predecessor_ids: number[]
+  estimated_start_time?: string
+  estimated_end_time?: string
+  estimated_duration: number
+  actual_start_time?: string
+  actual_end_time?: string
+  duration_seconds: number
+  created_at: string
+  updated_at: string
+  stage?: Stage
+  operations?: Operation[]
+  responsible_person?: User
+  executor?: User
+  reviewer?: User
+}
+
+export interface Operation {
+  id: number
+  task_id: number
+  name: string
+  description: string
+  order: number
+  execution_mode: 'serial' | 'parallel'
+  status: 'pending' | 'in_progress' | 'paused' | 'completed'
+  executor_id?: number
+  predecessor_ids: number[]
+  guide: string
+  timeout_minutes: number
+  estimated_start_time?: string
+  estimated_end_time?: string
+  actual_start_time?: string
+  actual_end_time?: string
+  duration_seconds: number
+  created_at: string
+  updated_at: string
+  task?: Task
+  executor?: User
+}
+
+// Update DrillTemplate to include phases
+export interface DrillTemplateWithPhases extends DrillTemplate {
+  phases?: Phase[]
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Form, Input, Button, message, Table, Select, Space, Typography } from 'antd'
-import { webhookService, drillService } from '../../../services/drill'
+import { webhookService } from '../../../services/webhook'
+import { drillService } from '../../../services/drill'
 import { DrillInstance } from '../../../types'
 
 const { TextArea } = Input
@@ -56,10 +57,7 @@ const WebhookConfig: React.FC = () => {
   const handleSendMessage = async () => {
     try {
       const values = await sendForm.validateFields()
-      await webhookService.sendMessage({
-        drill_id: selectedDrill || 0,
-        content: values.content,
-      })
+      await webhookService.sendMessage(selectedDrill || 0, values.content)
       message.success('消息已发送')
       sendForm.resetFields()
       handleLoadLogs()

@@ -1,5 +1,5 @@
 import api from './api'
-import { DrillTemplate, DrillInstance, StepExecution, User } from '../types'
+import { DrillTemplate, DrillInstance, StepExecution } from '../types'
 
 export const drillService = {
   getTemplates: async (): Promise<DrillTemplate[]> => {
@@ -80,44 +80,15 @@ export const drillService = {
     await api.post(`/executions/${id}/start`)
   },
 
+  pauseExecution: async (id: number): Promise<void> => {
+    await api.post(`/executions/${id}/pause`)
+  },
+
+  resumeExecution: async (id: number): Promise<void> => {
+    await api.post(`/executions/${id}/resume`)
+  },
+
   completeExecution: async (id: number): Promise<void> => {
     await api.post(`/executions/${id}/complete`)
-  },
-}
-
-export const userService = {
-  getUsers: async (): Promise<User[]> => {
-    const response = await api.get<User[]>('/users')
-    return response.data
-  },
-
-  getUser: async (id: number): Promise<User> => {
-    const response = await api.get<User>(`/users/${id}`)
-    return response.data
-  },
-
-  createUser: async (data: { username: string; password: string; name: string; role: string }): Promise<User> => {
-    const response = await api.post<User>('/users', data)
-    return response.data
-  },
-
-  updateUser: async (id: number, data: Partial<User> & { password?: string }): Promise<User> => {
-    const response = await api.put<User>(`/users/${id}`, data)
-    return response.data
-  },
-
-  deleteUser: async (id: number): Promise<void> => {
-    await api.delete(`/users/${id}`)
-  },
-}
-
-export const webhookService = {
-  getMessageLogs: async (drillId: number): Promise<any[]> => {
-    const response = await api.get<any[]>('/webhooks/logs', { params: { drill_id: drillId } })
-    return response.data
-  },
-
-  sendMessage: async (data: { drill_id: number; content: string }): Promise<void> => {
-    await api.post('/webhooks/send', data)
   },
 }

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
+	gorillaWebSocket "github.com/gorilla/websocket"
 
 	"github.com/yourorg/outage-drill-platform/server/internal/middleware"
 	"github.com/yourorg/outage-drill-platform/server/internal/websocket"
@@ -12,13 +12,13 @@ import (
 
 type WebSocketHandler struct {
 	hub      *websocket.Hub
-	upgrader websocket.Upgrader
+	upgrader gorillaWebSocket.Upgrader
 }
 
 func NewWebSocketHandler(hub *websocket.Hub) *WebSocketHandler {
 	return &WebSocketHandler{
 		hub: hub,
-		upgrader: websocket.Upgrader{
+		upgrader: gorillaWebSocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {

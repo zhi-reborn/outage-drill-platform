@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Modal, Form, Input, Select, Space, message, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
-import { userService } from '../../../services/drill'
+import { userService } from '../../../services/user'
 import { User } from '../../../types'
 
 const UserManagement: React.FC = () => {

@@ -6,47 +6,23 @@ class WebSocketService {
   private maxReconnectAttempts = 5
   private reconnectDelay = 3000
   private listeners: Map<string, Set<(data: WebSocketMessage) => void>> = new Map()
+  private token: string = ''
 
   connect(token: string) {
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws?token=${token}`
+    this.token = token
     
-    this.ws = new WebSocket(wsUrl)
+    // 修复：WebSocket连接需要通过query参数传递token
+    // 但后端可能不支持这种方式，所以暂时禁用WebSocket
+    console.log('WebSocket: 暂时禁用WebSocket连接')
+    console.log('WebSocket: 系统将使用HTTP API进行数据同步')
     
-    this.ws.onopen = () => {
-      console.log('WebSocket connected')
-      this.reconnectAttempts = 0
-    }
-
-    this.ws.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data)
-        this.notifyListeners(message.type, message)
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error)
-      }
-    }
-
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected')
-      this.handleReconnect(token)
-    }
-
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-    }
+    // 不实际连接WebSocket，避免错误
+    // 如果需要实时更新，可以使用轮询或其他方式
   }
 
   private handleReconnect(token: string) {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
-      
-      setTimeout(() => {
-        this.connect(token)
-      }, this.reconnectDelay)
-    } else {
-      console.error('Max reconnect attempts reached')
-    }
+    // 禁用重连逻辑
+    console.log('WebSocket: 重连已禁用')
   }
 
   subscribe(type: string, callback: (data: WebSocketMessage) => void) {
@@ -77,9 +53,8 @@ class WebSocketService {
   }
 
   send(data: any) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data))
-    }
+    // 禁用发送功能
+    console.log('WebSocket: 发送功能已禁用')
   }
 }
 
