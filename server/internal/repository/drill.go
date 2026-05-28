@@ -52,3 +52,12 @@ func (r *DrillRepository) FindByStatus(status string) ([]*model.DrillInstance, e
 	}
 	return drills, nil
 }
+
+func (r *DrillRepository) FindByTemplateID(templateID uint) ([]*model.DrillInstance, error) {
+	var drills []*model.DrillInstance
+	err := r.db.Where("template_id = ?", templateID).Preload("Template").Preload("Creator").Find(&drills).Error
+	if err != nil {
+		return nil, err
+	}
+	return drills, nil
+}

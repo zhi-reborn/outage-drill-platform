@@ -140,7 +140,80 @@ func (s *DrillService) StartDrill(id uint) error {
 	drill.Status = "running"
 	drill.StartTime = &now
 
-	return s.drillRepo.Update(drill)
+	if err := s.drillRepo.Update(drill); err != nil {
+		return err
+	}
+
+	// 自动启动第一个执行步骤
+	firstExec, err := s.executionRepo.FindNextPendingByDrillID(id, 0)
+	if err != nil || firstExec == nil {
+		return nil
+	}
+
+	firstExec.Status = "in_progress"
+	firstExec.StartTime = &now
+	if err := s.executionRepo.Update(firstExec); err != nil {
+		return nil
+	}
+
+	// 同步到 operation/task 并级联向上更新父节点状态
+	s.syncAndCascade(firstExec)
+	log.Printf("[AUTO-START] Drill %d started, auto-started first step: execution %d (%s)", id, firstExec.ID, firstExec.StepName)
+
+	return nil
+}
+
+func (s *DrillService) syncAndCascade(execution *model.StepExecution) {
+	if execution.OperationID != nil && s.operationRepo != nil {
+		operation, err := s.operationRepo.FindByID(*execution.OperationID)
+		if err != nil {
+			return
+		}
+		if operation.Status != execution.Status {
+			s.operationRepo.UpdateStatus(operation.ID, execution.Status)
+			log.Printf("[SYNC] Operation %d status → %s", operation.ID, execution.Status)
+		}
+		s.cascadeTaskStatusFromOp(operation.TaskID)
+	} else if execution.TaskID != nil && s.taskRepo != nil {
+		task, err := s.taskRepo.FindByID(*execution.TaskID)
+		if err != nil {
+			return
+		}
+		if task.Status != execution.Status {
+			s.taskRepo.UpdateStatus(task.ID, execution.Status)
+			log.Printf("[SYNC] Task %d status → %s", task.ID, execution.Status)
+		}
+		s.cascadeStageStatus(task.StageID)
+	}
+}
+
+func (s *DrillService) cascadeTaskStatusFromOp(taskID uint) {
+	if s.operationRepo == nil || s.taskRepo == nil {
+		return
+	}
+	ops, err := s.operationRepo.FindByTaskID(taskID)
+	if err != nil || len(ops) == 0 {
+		return
+	}
+	statuses := make([]string, len(ops))
+	for i, op := range ops {
+		statuses[i] = op.Status
+	}
+	newStatus := aggregateStatus(statuses)
+
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return
+	}
+	if task.Status != newStatus {
+		s.taskRepo.UpdateStatus(taskID, newStatus)
+		log.Printf("[CASCADE] DrillService Task %d status → %s", taskID, newStatus)
+		s.cascadeStageStatus(task.StageID)
+
+		if newStatus == "completed" {
+			s.autoStartNextTask(task)
+		}
+	}
 }
 
 func (s *DrillService) PauseDrill(id uint) error {
@@ -386,8 +459,12 @@ func (s *DrillService) cascadeStageStatus(stageID uint) {
 	}
 	if stage.Status != newStatus {
 		s.stageRepo.UpdateStatus(stageID, newStatus)
-		log.Printf("[DEBUG] DrillService cascaded stage %d status to %s", stageID, newStatus)
+		log.Printf("[CASCADE] DrillService Stage %d status → %s", stageID, newStatus)
 		s.cascadePhaseStatus(stage.PhaseID)
+
+		if newStatus == "completed" {
+			s.autoStartNextStage(stage)
+		}
 	}
 }
 
@@ -411,6 +488,158 @@ func (s *DrillService) cascadePhaseStatus(phaseID uint) {
 	}
 	if phase.Status != newStatus {
 		s.phaseRepo.UpdateStatus(phaseID, newStatus)
-		log.Printf("[DEBUG] DrillService cascaded phase %d status to %s", phaseID, newStatus)
+		log.Printf("[CASCADE] DrillService Phase %d status → %s", phaseID, newStatus)
+
+		if newStatus == "completed" {
+			s.autoStartNextPhase(phase)
+		}
 	}
+}
+
+func (s *DrillService) autoStartNextPhase(completedPhase *model.Phase) {
+	if s.phaseRepo == nil || s.stageRepo == nil || s.taskRepo == nil || s.operationRepo == nil {
+		return
+	}
+	phases, err := s.phaseRepo.FindByTemplateID(completedPhase.TemplateID)
+	if err != nil || len(phases) == 0 {
+		return
+	}
+	var nextPhase *model.Phase
+	for _, p := range phases {
+		if p.Order == completedPhase.Order+1 {
+			nextPhase = p
+			break
+		}
+	}
+	if nextPhase == nil || nextPhase.Status != "pending" {
+		return
+	}
+	now := time.Now()
+	nextPhase.Status = "in_progress"
+	nextPhase.ActualStartTime = &now
+	if err := s.phaseRepo.Update(nextPhase); err != nil {
+		log.Printf("[AUTO-START] DrillService: failed to start next phase %d: %v", nextPhase.ID, err)
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Phase %d → in_progress", nextPhase.ID)
+
+	stages, err := s.stageRepo.FindByPhaseID(nextPhase.ID)
+	if err != nil || len(stages) == 0 {
+		return
+	}
+	firstStage := stages[0]
+	firstStage.Status = "in_progress"
+	firstStage.ActualStartTime = &now
+	if err := s.stageRepo.Update(firstStage); err != nil {
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Stage %d → in_progress", firstStage.ID)
+
+	tasks, err := s.taskRepo.FindByStageID(firstStage.ID)
+	if err != nil || len(tasks) == 0 {
+		return
+	}
+	firstTask := tasks[0]
+	firstTask.Status = "in_progress"
+	firstTask.ActualStartTime = &now
+	if err := s.taskRepo.Update(firstTask); err != nil {
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Task %d → in_progress", firstTask.ID)
+
+	operations, err := s.operationRepo.FindByTaskID(firstTask.ID)
+	if err != nil || len(operations) == 0 {
+		return
+	}
+	firstOp := operations[0]
+	firstOp.Status = "in_progress"
+	firstOp.ActualStartTime = &now
+	s.operationRepo.Update(firstOp)
+	log.Printf("[AUTO-START] DrillService: Operation %d → in_progress", firstOp.ID)
+}
+
+func (s *DrillService) autoStartNextStage(completedStage *model.Stage) {
+	if s.stageRepo == nil || s.taskRepo == nil || s.operationRepo == nil {
+		return
+	}
+	stages, err := s.stageRepo.FindByPhaseID(completedStage.PhaseID)
+	if err != nil || len(stages) == 0 {
+		return
+	}
+	var nextStage *model.Stage
+	for _, st := range stages {
+		if st.Order == completedStage.Order+1 {
+			nextStage = st
+			break
+		}
+	}
+	if nextStage == nil || nextStage.Status != "pending" {
+		return
+	}
+	now := time.Now()
+	nextStage.Status = "in_progress"
+	nextStage.ActualStartTime = &now
+	if err := s.stageRepo.Update(nextStage); err != nil {
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Stage %d → in_progress", nextStage.ID)
+
+	tasks, err := s.taskRepo.FindByStageID(nextStage.ID)
+	if err != nil || len(tasks) == 0 {
+		return
+	}
+	firstTask := tasks[0]
+	firstTask.Status = "in_progress"
+	firstTask.ActualStartTime = &now
+	if err := s.taskRepo.Update(firstTask); err != nil {
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Task %d → in_progress", firstTask.ID)
+
+	operations, err := s.operationRepo.FindByTaskID(firstTask.ID)
+	if err != nil || len(operations) == 0 {
+		return
+	}
+	firstOp := operations[0]
+	firstOp.Status = "in_progress"
+	firstOp.ActualStartTime = &now
+	s.operationRepo.Update(firstOp)
+	log.Printf("[AUTO-START] DrillService: Operation %d → in_progress", firstOp.ID)
+}
+
+func (s *DrillService) autoStartNextTask(completedTask *model.Task) {
+	if s.taskRepo == nil || s.operationRepo == nil {
+		return
+	}
+	tasks, err := s.taskRepo.FindByStageID(completedTask.StageID)
+	if err != nil || len(tasks) == 0 {
+		return
+	}
+	var nextTask *model.Task
+	for _, t := range tasks {
+		if t.Order == completedTask.Order+1 {
+			nextTask = t
+			break
+		}
+	}
+	if nextTask == nil || nextTask.Status != "pending" {
+		return
+	}
+	now := time.Now()
+	nextTask.Status = "in_progress"
+	nextTask.ActualStartTime = &now
+	if err := s.taskRepo.Update(nextTask); err != nil {
+		return
+	}
+	log.Printf("[AUTO-START] DrillService: Task %d → in_progress", nextTask.ID)
+
+	operations, err := s.operationRepo.FindByTaskID(nextTask.ID)
+	if err != nil || len(operations) == 0 {
+		return
+	}
+	firstOp := operations[0]
+	firstOp.Status = "in_progress"
+	firstOp.ActualStartTime = &now
+	s.operationRepo.Update(firstOp)
+	log.Printf("[AUTO-START] DrillService: Operation %d → in_progress", firstOp.ID)
 }

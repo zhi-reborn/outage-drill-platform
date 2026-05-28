@@ -179,11 +179,9 @@ const DrillManagement: React.FC = () => {
             查看详情
           </Button>
           {record.status === 'pending' && (
-            <Popconfirm title="确定启动演练?" onConfirm={() => handleStart(record.id)}>
-              <Button icon={<PlayCircleOutlined />} type="primary" style={{ marginRight: 8 }}>
-                启动
-              </Button>
-            </Popconfirm>
+            <Button icon={<PlayCircleOutlined />} type="primary" style={{ marginRight: 8 }} onClick={() => handleStart(record.id)}>
+              启动
+            </Button>
           )}
           {record.status === 'running' && (
             <>

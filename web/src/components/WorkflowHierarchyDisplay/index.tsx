@@ -85,6 +85,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
     const colors: Record<string, string> = {
       pending: '#6B7280',
       in_progress: '#00D9FF',
+      running: '#00D9FF',
       paused: '#F59E0B',
       completed: '#10B981',
       timeout: '#EF4444'
@@ -96,6 +97,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
     const texts: Record<string, string> = {
       pending: '待开始',
       in_progress: '进行中',
+      running: '进行中',
       paused: '已暂停',
       completed: '已完成',
       timeout: '已超时'
@@ -108,6 +110,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
       case 'completed':
         return <CheckCircleOutlined />
       case 'in_progress':
+      case 'running':
         return <PlayCircleOutlined />
       case 'paused':
         return <PauseCircleOutlined />
@@ -173,7 +176,11 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
   }
 
   const phases = template.phases || []
-  const completedPhases = phases.filter(p => p.status === 'completed').length
+  const firstIncompleteIdx = phases.findIndex((p: any) => p.status !== 'completed')
+  const sortedPhases = firstIncompleteIdx === -1
+    ? phases
+    : [...phases.slice(firstIncompleteIdx), ...phases.slice(0, firstIncompleteIdx)]
+  const completedPhases = phases.filter((p: any) => p.status === 'completed').length
   const totalStages = phases.reduce((acc, phase) => 
     acc + (phase.stages || []).length, 0
   )
@@ -275,7 +282,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
       </div>
 
       <div className="flow-overview">
-        {phases.map((phase, phaseIdx) => {
+        {sortedPhases.map((phase, phaseIdx) => {
           const allTasks = (phase.stages || []).flatMap((s: any) => s.tasks || [])
           const allOperations = allTasks.flatMap((t: any) => (t.operations || []).map((op: any) => ({
             ...op,

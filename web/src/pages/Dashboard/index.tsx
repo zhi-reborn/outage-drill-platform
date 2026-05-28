@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Row, Col, Select, Space, Typography, Button, Empty, Spin, Tabs, Progress, Tag, Card } from 'antd'
 import { ReloadOutlined, ApartmentOutlined, DashboardOutlined, ThunderboltOutlined, DatabaseOutlined, ClockCircleOutlined, CheckCircleOutlined, WarningOutlined, SyncOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { drillService } from '../../services/drill'
+import { webhookService } from '../../services/webhook'
 import { DrillInstance, StepExecution, WebSocketMessage } from '../../types'
 import WorkflowHierarchyDisplay from '../../components/WorkflowHierarchyDisplay'
 import MessageList from '../../components/MessageList'
 
 const { Title, Text } = Typography
+
+const MAX_MESSAGES = 100
+const POLL_INTERVAL = 5000
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate()
@@ -19,6 +23,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const { subscribe, unsubscribe } = useWebSocket()
+  const prevExecutionsRef = useRef<Map<number, string>>(new Map())
+  const initialLoadRef = useRef(true)
 
   useEffect(() => {
     loadDrills()
@@ -26,12 +32,16 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (selectedDrill) {
+      initialLoadRef.current = true
+      prevExecutionsRef.current.clear()
+      setMessages([])
       loadExecutions(selectedDrill.id)
+      loadMessageLogs(selectedDrill.id)
       
       const handleStepUpdate = (data: WebSocketMessage) => {
         if (data.drill_id === selectedDrill.id) {
           loadExecutions(selectedDrill.id)
-          setMessages(prev => [...prev, data])
+          addMessages([data])
         }
       }
 
@@ -44,6 +54,42 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [selectedDrill])
+
+  useEffect(() => {
+    if (!selectedDrill) return
+
+    const interval = setInterval(() => {
+      loadExecutions(selectedDrill.id)
+    }, POLL_INTERVAL)
+
+    return () => clearInterval(interval)
+  }, [selectedDrill])
+
+  const addMessages = (newMsgs: WebSocketMessage[]) => {
+    setMessages(prev => {
+      const updated = [...prev, ...newMsgs]
+      return updated.length > MAX_MESSAGES ? updated.slice(-MAX_MESSAGES) : updated
+    })
+  }
+
+  const loadMessageLogs = async (drillId: number) => {
+    try {
+      const logs = await webhookService.getMessageLogs(drillId)
+      if (logs && logs.length > 0) {
+        const mapped: WebSocketMessage[] = logs.map(log => ({
+          type: 'message' as const,
+          drill_id: log.drill_id,
+          data: { content: log.content },
+          timestamp: log.sent_at,
+        }))
+        setMessages(prev => {
+          const updated = [...prev, ...mapped]
+          return updated.length > MAX_MESSAGES ? updated.slice(-MAX_MESSAGES) : updated
+        })
+      }
+    } catch {
+    }
+  }
 
   const loadDrills = async () => {
     setLoading(true)
@@ -73,6 +119,42 @@ const Dashboard: React.FC = () => {
       
       if (data && data.length > 0) {
         setExecutions(data)
+
+        const prevMap = prevExecutionsRef.current
+        if (initialLoadRef.current) {
+          initialLoadRef.current = false
+          data.forEach(exec => {
+            prevMap.set(exec.id, exec.status)
+          })
+          return
+        }
+
+        const newMessages: WebSocketMessage[] = []
+        data.forEach(exec => {
+          const prevStatus = prevMap.get(exec.id)
+          if (prevStatus && prevStatus !== exec.status) {
+            newMessages.push({
+              type: 'step_update',
+              drill_id: drillId,
+              data: {
+                step_name: exec.step_name || `步骤 ${exec.step_order}`,
+                step_order: exec.step_order,
+                status: exec.status,
+                prev_status: prevStatus,
+                phase_name: exec.phase_name,
+                stage_name: exec.stage_name,
+                task_name: exec.task_name,
+                assignee_name: exec.assignee?.name,
+              },
+              timestamp: new Date().toISOString(),
+            })
+          }
+          prevMap.set(exec.id, exec.status)
+        })
+
+        if (newMessages.length > 0) {
+          addMessages(newMessages)
+        }
       } else {
         setExecutions([])
       }

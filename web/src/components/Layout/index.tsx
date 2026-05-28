@@ -106,7 +106,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             marginRight: '24px',
             color: '#1890ff'
           }}>
-            断网断电演练平台
+            容灾演练平台
           </div>
           <Menu
             mode="horizontal"
