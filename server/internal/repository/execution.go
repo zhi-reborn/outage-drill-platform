@@ -29,7 +29,11 @@ func (r *ExecutionRepository) FindByID(id uint) (*model.StepExecution, error) {
 
 func (r *ExecutionRepository) FindByDrillID(drillID uint) ([]*model.StepExecution, error) {
 	var executions []*model.StepExecution
-	err := r.db.Where("drill_id = ?", drillID).Order("step_order").Find(&executions).Error
+	err := r.db.Where("drill_id = ?", drillID).
+		Preload("Drill").
+		Preload("Assignee").
+		Order("step_order").
+		Find(&executions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +56,11 @@ func (r *ExecutionRepository) Update(execution *model.StepExecution) error {
 	return r.db.Save(execution).Error
 }
 
-func (r *ExecutionRepository) AssignStep(executionID, assigneeID uint) error {
-	return r.db.Model(&model.StepExecution{}).
-		Where("id = ?", executionID).
-		Update("assignee_id", assigneeID).Error
+func (r *ExecutionRepository) AssignStep(executionID uint, assigneeID uint) error {
+	// 使用原生SQL更新，确保正确处理指针类型字段
+	return r.db.Exec("UPDATE step_executions SET assignee_id = ? WHERE id = ?", assigneeID, executionID).Error
+}
+
+func (r *ExecutionRepository) DeleteByDrillID(drillID uint) error {
+	return r.db.Where("drill_id = ?", drillID).Delete(&model.StepExecution{}).Error
 }

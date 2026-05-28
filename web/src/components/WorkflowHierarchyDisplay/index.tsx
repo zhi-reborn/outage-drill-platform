@@ -201,6 +201,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
                   )}
                   <div className="progress-info">
                     <Progress 
+                      type="line"
                       percent={calculateProgress(phase.status)} 
                       strokeColor={getStatusColor(phase.status)}
                       trailColor="#2D3748"
@@ -241,6 +242,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
                           </Tag>
                           <div className="progress-info-small">
                             <Progress 
+                              type="line"
                               percent={calculateProgress(stage.status)} 
                               strokeColor={getStatusColor(stage.status)}
                               trailColor="#2D3748"
@@ -338,7 +340,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
 
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
+          @import url('https://fonts.font.im/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
 
           :root {
             --primary-cyan: #00D9FF;
@@ -351,6 +353,14 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
             --success-green: #10B981;
             --warning-orange: #F59E0B;
             --error-red: #EF4444;
+          }
+
+          .workflow-container .ant-typography {
+            color: #E5E7EB !important;
+          }
+
+          .workflow-container .ant-typography.template-name {
+            color: #00D9FF !important;
           }
 
           .workflow-container {
@@ -404,11 +414,12 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
           }
 
           .template-name {
-            color: var(--text-primary);
+            color: #00D9FF !important;
             font-family: 'Orbitron', sans-serif;
             font-size: 24px;
             font-weight: 700;
             margin: 0;
+            text-shadow: 0 0 12px rgba(0, 217, 255, 0.4);
           }
 
           .template-meta {
@@ -510,7 +521,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
           }
 
           .phase-name {
-            color: var(--text-primary);
+            color: #E5E7EB !important;
             font-family: 'Orbitron', sans-serif;
             font-size: 20px;
             font-weight: 600;
@@ -574,10 +585,12 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-direction: row;
           }
 
           .progress-bar {
-            width: 100px;
+            flex: 1;
+            min-width: 100px;
             height: 6px;
             border-radius: 3px;
           }
@@ -586,6 +599,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
             color: var(--text-secondary);
             font-family: 'Share Tech Mono', monospace;
             font-size: 12px;
+            white-space: nowrap;
           }
 
           .stages-container {
@@ -649,7 +663,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
           }
 
           .stage-name {
-            color: var(--text-primary);
+            color: #E5E7EB !important;
             font-family: 'Rajdhani', sans-serif;
             font-size: 18px;
             font-weight: 600;
@@ -688,7 +702,10 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
           }
 
           .progress-info-small {
-            width: 80px;
+            display: flex;
+            align-items: center;
+            min-width: 80px;
+            flex: 1;
           }
 
           .progress-bar-small {
@@ -761,7 +778,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
           }
 
           .task-name {
-            color: var(--text-primary);
+            color: #E5E7EB !important;
             font-family: 'Rajdhani', sans-serif;
             font-size: 16px;
             font-weight: 600;

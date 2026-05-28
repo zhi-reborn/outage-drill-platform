@@ -57,6 +57,14 @@ export const drillService = {
     await api.post(`/drills/${id}/end`)
   },
 
+  deleteDrill: async (id: number): Promise<void> => {
+    await api.delete(`/drills/${id}`)
+  },
+
+  syncDrillSteps: async (id: number): Promise<void> => {
+    await api.post(`/drills/${id}/sync-steps`)
+  },
+
   getMyTasks: async (): Promise<StepExecution[]> => {
     const response = await api.get<StepExecution[]>('/executions/my-tasks')
     return response.data

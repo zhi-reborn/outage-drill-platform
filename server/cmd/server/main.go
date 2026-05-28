@@ -40,15 +40,16 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret, cfg.JWT.ExpireHours)
 	templateSvc := service.NewTemplateService(templateRepo)
-	drillSvc := service.NewDrillService(drillRepo, templateRepo, executionRepo)
-	executionSvc := service.NewExecutionService(executionRepo, drillRepo)
+	drillSvc := service.NewDrillService(drillRepo, templateRepo, executionRepo, taskRepo, operationRepo, stageRepo, phaseRepo)
+
+	hub := websocket.NewHub()
+	go hub.Run()
+
+	executionSvc := service.NewExecutionService(executionRepo, drillRepo, taskRepo, operationRepo, stageRepo, phaseRepo, hub)
 	workflowSvc := service.NewWorkflowService(phaseRepo, stageRepo, taskRepo, operationRepo, templateRepo)
 
 	wechatClient := wechatPkg.NewWebhookClient(cfg.WeChat.WebhookURL)
 	notificationSvc := service.NewNotificationService(messageRepo, wechatClient)
-
-	hub := websocket.NewHub()
-	go hub.Run()
 
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware())
@@ -98,10 +99,12 @@ func main() {
 			drills.GET("", drillHandler.ListDrills)
 			drills.GET("/:id", drillHandler.GetDrill)
 			drills.POST("", middleware.RequireRole("admin", "commander"), drillHandler.CreateDrill)
+			drills.DELETE("/:id", middleware.RequireRole("admin", "commander"), drillHandler.DeleteDrill)
 			drills.POST("/:id/start", middleware.RequireRole("admin", "commander"), drillHandler.StartDrill)
 			drills.POST("/:id/pause", middleware.RequireRole("admin", "commander"), drillHandler.PauseDrill)
 			drills.POST("/:id/resume", middleware.RequireRole("admin", "commander"), drillHandler.ResumeDrill)
 			drills.POST("/:id/end", middleware.RequireRole("admin", "commander"), drillHandler.EndDrill)
+			drills.POST("/:id/sync-steps", middleware.RequireRole("admin", "commander"), drillHandler.SyncDrillSteps)
 		}
 
 		executions := api.Group("/executions")

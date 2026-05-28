@@ -27,7 +27,7 @@ import type { Phase, Stage, Task, Operation, DrillTemplateWithPhases } from '../
 
 const { TextArea } = Input
 const { Text, Title } = Typography
-const { Panel } = Collapse
+
 
 interface WorkflowTemplateEditorProps {
   templateId: number
@@ -351,231 +351,219 @@ const WorkflowTemplateEditor: React.FC<WorkflowTemplateEditorProps> = ({
           <Collapse 
             defaultActiveKey={template.phases.map(p => `phase-${p.id}`)}
             expandIcon={({ isActive }) => isActive ? <DownOutlined /> : <RightOutlined />}
-          >
-            {template.phases.map((phase) => (
-              <Panel 
-                header={
-                  <Space>
-                    <Text strong>阶段 {phase.order}: {phase.name}</Text>
-                    {getExecutionModeTag(phase.execution_mode)}
-                    {getStatusTag(phase.status)}
-                  </Space>
-                }
-                key={`phase-${phase.id}`}
-                extra={
-                  <Space>
-                    <Button 
-                      size="small" 
-                      icon={<PlusOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleCreateStage(phase.id)
-                      }}
-                    >
-                      新增环节
-                    </Button>
-                    <Button 
-                      size="small" 
-                      icon={<EditOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEditPhase(phase)
-                      }}
-                    >
-                      编辑
-                    </Button>
-                    <Popconfirm
-                      title="确定删除此阶段?"
-                      onConfirm={() => handleDeletePhase(phase.id)}
-                    >
-                      <Button 
-                        size="small" 
-                        icon={<DeleteOutlined />}
-                        danger
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        删除
-                      </Button>
-                    </Popconfirm>
-                  </Space>
-                }
-              >
-                {phase.stages && phase.stages.length > 0 ? (
-                  <Collapse 
-                    defaultActiveKey={phase.stages.map(s => `stage-${s.id}`)}
-                    expandIcon={({ isActive }) => isActive ? <DownOutlined /> : <RightOutlined />}
+            items={template.phases.map((phase) => ({
+              key: `phase-${phase.id}`,
+              label: (
+                <Space>
+                  <Text strong>阶段 {phase.order}: {phase.name}</Text>
+                  {getExecutionModeTag(phase.execution_mode)}
+                  {getStatusTag(phase.status)}
+                </Space>
+              ),
+              extra: (
+                <Space>
+                  <Button 
+                    size="small" 
+                    icon={<PlusOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCreateStage(phase.id)
+                    }}
                   >
-                    {phase.stages.map((stage) => (
-                      <Panel 
-                        header={
-                          <Space>
-                            <Text>环节 {stage.order}: {stage.name}</Text>
-                            {getExecutionModeTag(stage.execution_mode)}
-                            {getStatusTag(stage.status)}
-                          </Space>
-                        }
-                        key={`stage-${stage.id}`}
-                        extra={
-                          <Space>
-                            <Button 
-                              size="small" 
-                              icon={<PlusOutlined />}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCreateTask(stage.id)
-                              }}
-                            >
-                              新增任务
-                            </Button>
-                            <Button 
-                              size="small" 
-                              icon={<EditOutlined />}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEditStage(stage)
-                              }}
-                            >
-                              编辑
-                            </Button>
-                            <Popconfirm
-                              title="确定删除此环节?"
-                              onConfirm={() => handleDeleteStage(stage.id)}
-                            >
+                    新增环节
+                  </Button>
+                  <Button 
+                    size="small" 
+                    icon={<EditOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditPhase(phase)
+                    }}
+                  >
+                    编辑
+                  </Button>
+                  <Popconfirm
+                    title="确定删除此阶段?"
+                    onConfirm={() => handleDeletePhase(phase.id)}
+                  >
+                    <Button 
+                      size="small" 
+                      icon={<DeleteOutlined />}
+                      danger
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      删除
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              ),
+              children: phase.stages && phase.stages.length > 0 ? (
+                <Collapse 
+                  defaultActiveKey={phase.stages.map(s => `stage-${s.id}`)}
+                  expandIcon={({ isActive }) => isActive ? <DownOutlined /> : <RightOutlined />}
+                  items={phase.stages.map((stage) => ({
+                    key: `stage-${stage.id}`,
+                    label: (
+                      <Space>
+                        <Text>环节 {stage.order}: {stage.name}</Text>
+                        {getExecutionModeTag(stage.execution_mode)}
+                        {getStatusTag(stage.status)}
+                      </Space>
+                    ),
+                    extra: (
+                      <Space>
+                        <Button 
+                          size="small" 
+                          icon={<PlusOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCreateTask(stage.id)
+                          }}
+                        >
+                          新增任务
+                        </Button>
+                        <Button 
+                          size="small" 
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditStage(stage)
+                          }}
+                        >
+                          编辑
+                        </Button>
+                        <Popconfirm
+                          title="确定删除此环节?"
+                          onConfirm={() => handleDeleteStage(stage.id)}
+                        >
+                          <Button 
+                            size="small" 
+                            icon={<DeleteOutlined />}
+                            danger
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            删除
+                          </Button>
+                        </Popconfirm>
+                      </Space>
+                    ),
+                    children: stage.tasks && stage.tasks.length > 0 ? (
+                      <Collapse 
+                        defaultActiveKey={stage.tasks.map(t => `task-${t.id}`)}
+                        expandIcon={({ isActive }) => isActive ? <DownOutlined /> : <RightOutlined />}
+                        items={stage.tasks.map((task) => ({
+                          key: `task-${task.id}`,
+                          label: (
+                            <Space>
+                              <Text>任务 {task.order}: {task.name}</Text>
+                              {getExecutionModeTag(task.execution_mode)}
+                              {getStatusTag(task.status)}
+                              {task.department && <Tag color="purple">{task.department}</Tag>}
+                            </Space>
+                          ),
+                          extra: (
+                            <Space>
                               <Button 
                                 size="small" 
-                                icon={<DeleteOutlined />}
-                                danger
-                                onClick={(e) => e.stopPropagation()}
+                                icon={<PlusOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCreateOperation(task.id)
+                                }}
                               >
-                                删除
+                                新增操作
                               </Button>
-                            </Popconfirm>
-                          </Space>
-                        }
-                      >
-                        {stage.tasks && stage.tasks.length > 0 ? (
-                          <Collapse 
-                            defaultActiveKey={stage.tasks.map(t => `task-${t.id}`)}
-                            expandIcon={({ isActive }) => isActive ? <DownOutlined /> : <RightOutlined />}
-                          >
-                            {stage.tasks.map((task) => (
-                              <Panel 
-                                header={
-                                  <Space>
-                                    <Text>任务 {task.order}: {task.name}</Text>
-                                    {getExecutionModeTag(task.execution_mode)}
-                                    {getStatusTag(task.status)}
-                                    {task.department && <Tag color="purple">{task.department}</Tag>}
-                                  </Space>
-                                }
-                                key={`task-${task.id}`}
-                                extra={
-                                  <Space>
-                                    <Button 
-                                      size="small" 
-                                      icon={<PlusOutlined />}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleCreateOperation(task.id)
-                                      }}
-                                    >
-                                      新增操作
-                                    </Button>
-                                    <Button 
-                                      size="small" 
-                                      icon={<EditOutlined />}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleEditTask(task)
-                                      }}
-                                    >
-                                      编辑
-                                    </Button>
-                                    <Popconfirm
-                                      title="确定删除此任务?"
-                                      onConfirm={() => handleDeleteTask(task.id)}
-                                    >
+                              <Button 
+                                size="small" 
+                                icon={<EditOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditTask(task)
+                                }}
+                              >
+                                编辑
+                              </Button>
+                              <Popconfirm
+                                title="确定删除此任务?"
+                                onConfirm={() => handleDeleteTask(task.id)}
+                              >
+                                <Button 
+                                  size="small" 
+                                  icon={<DeleteOutlined />}
+                                  danger
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  删除
+                                </Button>
+                              </Popconfirm>
+                            </Space>
+                          ),
+                          children: task.operations && task.operations.length > 0 ? (
+                            <div>
+                              {task.operations.map((operation) => (
+                                <Card 
+                                  key={`operation-${operation.id}`}
+                                  size="small"
+                                  style={{ marginBottom: 8 }}
+                                  title={
+                                    <Space>
+                                      <Text>操作 {operation.order}: {operation.name}</Text>
+                                      {getExecutionModeTag(operation.execution_mode)}
+                                      {getStatusTag(operation.status)}
+                                    </Space>
+                                  }
+                                  extra={
+                                    <Space>
                                       <Button 
                                         size="small" 
-                                        icon={<DeleteOutlined />}
-                                        danger
-                                        onClick={(e) => e.stopPropagation()}
+                                        icon={<EditOutlined />}
+                                        onClick={() => handleEditOperation(operation)}
                                       >
-                                        删除
+                                        编辑
                                       </Button>
-                                    </Popconfirm>
-                                  </Space>
-                                }
-                              >
-                                {task.operations && task.operations.length > 0 ? (
-                                  <div>
-                                    {task.operations.map((operation) => (
-                                      <Card 
-                                        key={`operation-${operation.id}`}
-                                        size="small"
-                                        style={{ marginBottom: 8 }}
-                                        title={
-                                          <Space>
-                                            <Text>操作 {operation.order}: {operation.name}</Text>
-                                            {getExecutionModeTag(operation.execution_mode)}
-                                            {getStatusTag(operation.status)}
-                                          </Space>
-                                        }
-                                        extra={
-                                          <Space>
-                                            <Button 
-                                              size="small" 
-                                              icon={<EditOutlined />}
-                                              onClick={() => handleEditOperation(operation)}
-                                            >
-                                              编辑
-                                            </Button>
-                                            <Popconfirm
-                                              title="确定删除此操作?"
-                                              onConfirm={() => handleDeleteOperation(operation.id)}
-                                            >
-                                              <Button 
-                                                size="small" 
-                                                icon={<DeleteOutlined />}
-                                                danger
-                                              >
-                                                删除
-                                              </Button>
-                                            </Popconfirm>
-                                          </Space>
-                                        }
+                                      <Popconfirm
+                                        title="确定删除此操作?"
+                                        onConfirm={() => handleDeleteOperation(operation.id)}
                                       >
-                                        <Space direction="vertical" style={{ width: '100%' }}>
-                                          <Text type="secondary">{operation.description}</Text>
-                                          {operation.guide && (
-                                            <div>
-                                              <Text strong>操作指引：</Text>
-                                              <Text>{operation.guide}</Text>
-                                            </div>
-                                          )}
-                                          <Text type="secondary">超时时间: {operation.timeout_minutes} 分钟</Text>
-                                        </Space>
-                                      </Card>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <Text type="secondary">暂无操作步骤</Text>
-                                )}
-                              </Panel>
-                            ))}
-                          </Collapse>
-                        ) : (
-                          <Text type="secondary">暂无任务</Text>
-                        )}
-                      </Panel>
-                    ))}
-                  </Collapse>
-                ) : (
-                  <Text type="secondary">暂无环节</Text>
-                )}
-              </Panel>
-            ))}
-          </Collapse>
+                                        <Button 
+                                          size="small" 
+                                          icon={<DeleteOutlined />}
+                                          danger
+                                        >
+                                          删除
+                                        </Button>
+                                      </Popconfirm>
+                                    </Space>
+                                  }
+                                >
+                                  <Space direction="vertical" style={{ width: '100%' }}>
+                                    <Text type="secondary">{operation.description}</Text>
+                                    {operation.guide && (
+                                      <div>
+                                        <Text strong>操作指引：</Text>
+                                        <Text>{operation.guide}</Text>
+                                      </div>
+                                    )}
+                                    <Text type="secondary">超时时间: {operation.timeout_minutes} 分钟</Text>
+                                  </Space>
+                                </Card>
+                              ))}
+                            </div>
+                          ) : (
+                            <Text type="secondary">暂无操作步骤</Text>
+                          ),
+                        }))}
+                      />
+                    ) : (
+                      <Text type="secondary">暂无任务</Text>
+                    ),
+                  }))}
+                />
+              ) : (
+                <Text type="secondary">暂无环节</Text>
+              ),
+            }))}
+          />
         ) : (
           <Text type="secondary">暂无阶段，请点击"新增阶段"创建</Text>
         )}

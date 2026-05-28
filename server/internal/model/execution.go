@@ -9,8 +9,10 @@ type StepExecution struct {
 	DrillID         uint       `gorm:"not null;index" json:"drill_id"`
 	StepOrder       int        `gorm:"not null" json:"step_order"`
 	StepName        string     `gorm:"size:100;not null" json:"step_name"`
-	AssigneeID      *uint      `gorm:"index" json:"assignee_id"` // 修复：改为指针类型，允许NULL（未分配时）
-	Status          string     `gorm:"size:20;not null;index" json:"status"` // pending, in_progress, completed, timeout
+	TaskID          *uint      `gorm:"index" json:"task_id"`
+	OperationID     *uint      `gorm:"index" json:"operation_id"`
+	AssigneeID      *uint      `gorm:"index" json:"assignee_id"`
+	Status          string     `gorm:"size:20;not null;index" json:"status"`
 	StartTime       *time.Time `json:"start_time"`
 	EndTime         *time.Time `json:"end_time"`
 	DurationSeconds int        `json:"duration_seconds"`

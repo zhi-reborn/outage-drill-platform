@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.font.im/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --primary-cyan: #00D9FF;
@@ -42,7 +42,15 @@ body {
 }
 
 .ant-table-tbody > tr:hover > td {
-  background: rgba(0, 217, 255, 0.05);
+  background: rgba(0, 217, 255, 0.08) !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-hover > td {
+  background: rgba(0, 217, 255, 0.08) !important;
+}
+
+.ant-table .ant-table-tbody > tr:hover > .ant-table-cell {
+  background: rgba(0, 217, 255, 0.08) !important;
 }
 
 .ant-card {
@@ -224,7 +232,7 @@ body {
 }
 
 .ant-progress-text {
-  color: var(--text-primary);
+  color: var(--primary-cyan) !important;
   font-family: 'Share Tech Mono', monospace;
 }
 
@@ -300,14 +308,23 @@ body {
 }
 
 .ant-descriptions-item-label {
-  background: rgba(0, 217, 255, 0.1);
-  color: var(--primary-cyan);
+  background: rgba(0, 217, 255, 0.1) !important;
+  color: var(--primary-cyan) !important;
   font-family: 'Share Tech Mono', monospace;
 }
 
 .ant-descriptions-item-content {
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   font-family: 'Rajdhani', sans-serif;
+  background: var(--card-bg) !important;
+}
+
+.ant-descriptions .ant-typography {
+  color: var(--text-primary) !important;
+}
+
+.ant-descriptions .ant-typography strong {
+  color: var(--text-primary) !important;
 }
 
 .ant-list {

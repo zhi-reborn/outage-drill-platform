@@ -43,3 +43,12 @@ func (r *TemplateRepository) Update(template *model.DrillTemplate) error {
 func (r *TemplateRepository) Delete(id uint) error {
 	return r.db.Delete(&model.DrillTemplate{}, id).Error
 }
+
+func (r *TemplateRepository) FindByIDWithPhases(id uint) (*model.DrillTemplate, error) {
+	var template model.DrillTemplate
+	err := r.db.Preload("Phases").Preload("Phases.Stages").Preload("Phases.Stages.Tasks").Preload("Phases.Stages.Tasks.Operations").First(&template, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &template, nil
+}

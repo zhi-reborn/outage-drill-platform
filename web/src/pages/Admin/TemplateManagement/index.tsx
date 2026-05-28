@@ -332,19 +332,28 @@ const TemplateManagement: React.FC = () => {
         style={{ top: 20 }}
       >
         {selectedTemplateId && (
-          <Tabs defaultActiveKey="editor">
-            <Tabs.TabPane tab="编辑器" key="editor">
-              <WorkflowTemplateEditor 
-                templateId={selectedTemplateId}
-                onSave={() => {
-                  loadTemplates()
-                }}
-              />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="可视化" key="visualization">
-              <WorkflowVisualization templateId={selectedTemplateId} />
-            </Tabs.TabPane>
-          </Tabs>
+          <Tabs 
+            defaultActiveKey="editor"
+            items={[
+              {
+                label: '编辑器',
+                key: 'editor',
+                children: (
+                  <WorkflowTemplateEditor 
+                    templateId={selectedTemplateId}
+                    onSave={() => {
+                      loadTemplates()
+                    }}
+                  />
+                ),
+              },
+              {
+                label: '可视化',
+                key: 'visualization',
+                children: <WorkflowVisualization templateId={selectedTemplateId} />,
+              },
+            ]}
+          />
         )}
       </Modal>
     </div>

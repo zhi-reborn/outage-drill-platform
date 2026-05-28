@@ -378,7 +378,7 @@ const Dashboard: React.FC = () => {
       <style>
         {`
           /* Font Import - Chinese Fonts */
-          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          @import url('https://fonts.font.im/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
           /* Global Variables - Cyberpunk Theme */
           :root {

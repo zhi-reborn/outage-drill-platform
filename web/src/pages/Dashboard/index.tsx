@@ -298,6 +298,7 @@ const Dashboard: React.FC = () => {
                       }
                     </Text>
                     <Progress 
+                      type="line"
                       percent={executions.length > 0 ? 
                         (executions.filter(e => e.status === 'completed').length / executions.length) * 100 : 
                         0
@@ -391,7 +392,7 @@ const Dashboard: React.FC = () => {
 
       <style>
         {`
-          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
+          @import url('https://fonts.font.im/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
 
           :root {
             --primary-cyan: #00D9FF;
@@ -404,6 +405,18 @@ const Dashboard: React.FC = () => {
             --success-green: #10B981;
             --warning-orange: #F59E0B;
             --error-red: #EF4444;
+          }
+
+          .dashboard-container .ant-typography {
+            color: #E5E7EB !important;
+          }
+
+          .dashboard-container .ant-typography.main-title {
+            color: #00D9FF !important;
+          }
+
+          .dashboard-container .ant-typography.subtitle {
+            color: #00D9FF !important;
           }
 
           .dashboard-container {
@@ -552,14 +565,16 @@ const Dashboard: React.FC = () => {
           }
 
           .main-title {
-            color: var(--text-primary);
+            color: #00D9FF !important;
             font-family: 'Orbitron', sans-serif;
             font-size: 36px;
             font-weight: 700;
             margin: 0;
             letter-spacing: 3px;
             text-transform: uppercase;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
+            text-shadow: 0 0 20px rgba(0, 217, 255, 0.5), 0 0 40px rgba(0, 217, 255, 0.2);
           }
 
           .subtitle-container {
@@ -605,6 +620,7 @@ const Dashboard: React.FC = () => {
             font-family: 'Share Tech Mono', monospace;
             font-size: 12px;
             letter-spacing: 2px;
+            white-space: nowrap;
           }
 
           .header-right {
@@ -664,7 +680,8 @@ const Dashboard: React.FC = () => {
             color: var(--text-primary);
             font-family: 'Rajdhani', sans-serif;
             font-size: 14px;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
           }
 
           .status-tag {
@@ -705,7 +722,7 @@ const Dashboard: React.FC = () => {
             border-radius: 16px;
             padding: 24px;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             transition: all 0.3s ease;
           }
 
@@ -768,6 +785,8 @@ const Dashboard: React.FC = () => {
             font-size: 12px;
             letter-spacing: 2px;
             text-transform: uppercase;
+            white-space: normal;
+            word-break: break-word;
           }
 
           .card-value {
@@ -781,7 +800,8 @@ const Dashboard: React.FC = () => {
             font-family: 'Rajdhani', sans-serif;
             font-size: 24px;
             font-weight: 600;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
           }
 
           .value-text.mono {

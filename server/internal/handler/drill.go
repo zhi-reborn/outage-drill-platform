@@ -125,3 +125,33 @@ func (h *DrillHandler) EndDrill(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "drill ended"})
 }
+
+func (h *DrillHandler) DeleteDrill(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid drill id"})
+		return
+	}
+
+	if err := h.drillSvc.DeleteDrill(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "drill deleted"})
+}
+
+func (h *DrillHandler) SyncDrillSteps(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid drill id"})
+		return
+	}
+
+	if err := h.drillSvc.SyncDrillSteps(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "steps synced successfully"})
+}

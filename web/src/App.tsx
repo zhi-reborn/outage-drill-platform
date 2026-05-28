@@ -10,6 +10,7 @@ import AdminLayout from './pages/Admin/Layout'
 import UserManagement from './pages/Admin/UserManagement'
 import TemplateManagement from './pages/Admin/TemplateManagement'
 import DrillManagement from './pages/Admin/DrillManagement'
+import DrillDetail from './pages/Admin/DrillDetail'
 import WebhookConfig from './pages/Admin/WebhookConfig'
 import AppLayout from './components/Layout'
 import DiagnosticPage from './pages/Diagnostic'
@@ -67,6 +68,7 @@ const App: React.FC = () => {
             <Route path="users" element={<UserManagement />} />
             <Route path="templates" element={<TemplateManagement />} />
             <Route path="drills" element={<DrillManagement />} />
+            <Route path="drills/:id" element={<DrillDetail />} />
             <Route path="webhooks" element={<WebhookConfig />} />
             <Route index element={<Navigate to="/admin/templates" />} />
           </Route>

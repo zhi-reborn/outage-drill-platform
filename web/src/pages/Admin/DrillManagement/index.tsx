@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Table, Button, Modal, Form, Input, Select, Space, message, Tag, Popconfirm } from 'antd'
-import { PlusOutlined, PlayCircleOutlined, PauseCircleOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { PlusOutlined, PlayCircleOutlined, PauseCircleOutlined, CheckCircleOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { drillService } from '../../../services/drill'
 import { DrillInstance, DrillTemplate } from '../../../types'
 
 const DrillManagement: React.FC = () => {
+  const navigate = useNavigate()
   const [drills, setDrills] = useState<DrillInstance[]>([])
   const [templates, setTemplates] = useState<DrillTemplate[]>([])
   const [loading, setLoading] = useState(false)
@@ -96,6 +98,16 @@ const DrillManagement: React.FC = () => {
     }
   }
 
+  const handleDelete = async (id: number) => {
+    try {
+      await drillService.deleteDrill(id)
+      message.success('演练已删除')
+      loadDrills()
+    } catch (error: any) {
+      message.error(error.response?.data?.error || '删除失败')
+    }
+  }
+
   const getStatusTag = (status: string) => {
     const colors = {
       pending: 'default',
@@ -156,22 +168,39 @@ const DrillManagement: React.FC = () => {
     {
       title: '操作',
       key: 'action',
+      width: 300,
       render: (_: any, record: DrillInstance) => (
-        <Space>
+        <Space wrap>
+          <Button 
+            icon={<EyeOutlined />} 
+            onClick={() => navigate(`/admin/drills/${record.id}`)}
+            style={{ marginRight: 8 }}
+          >
+            查看详情
+          </Button>
           {record.status === 'pending' && (
             <Popconfirm title="确定启动演练?" onConfirm={() => handleStart(record.id)}>
-              <Button icon={<PlayCircleOutlined />} type="primary">
+              <Button icon={<PlayCircleOutlined />} type="primary" style={{ marginRight: 8 }}>
                 启动
               </Button>
             </Popconfirm>
           )}
           {record.status === 'running' && (
             <>
-              <Button icon={<PauseCircleOutlined />} onClick={() => handlePause(record.id)}>
+              <Button 
+                icon={<PauseCircleOutlined />} 
+                onClick={() => handlePause(record.id)}
+                style={{ marginRight: 8, marginBottom: 8 }}
+              >
                 暂停
               </Button>
               <Popconfirm title="确定结束演练?" onConfirm={() => handleEnd(record.id)}>
-                <Button icon={<CheckCircleOutlined />} danger>
+                <Button 
+                  icon={<CheckCircleOutlined />} 
+                  type="primary"
+                  danger
+                  style={{ marginBottom: 8, color: '#fff' }}
+                >
                   结束
                 </Button>
               </Popconfirm>
@@ -179,15 +208,40 @@ const DrillManagement: React.FC = () => {
           )}
           {record.status === 'paused' && (
             <>
-              <Button icon={<PlayCircleOutlined />} type="primary" onClick={() => handleResume(record.id)}>
+              <Button 
+                icon={<PlayCircleOutlined />} 
+                type="primary" 
+                onClick={() => handleResume(record.id)}
+                style={{ marginRight: 8, marginBottom: 8 }}
+              >
                 恢复
               </Button>
               <Popconfirm title="确定结束演练?" onConfirm={() => handleEnd(record.id)}>
-                <Button icon={<CheckCircleOutlined />} danger>
+                <Button 
+                  icon={<CheckCircleOutlined />} 
+                  type="primary"
+                  danger
+                  style={{ marginBottom: 8, color: '#fff' }}
+                >
                   结束
                 </Button>
               </Popconfirm>
             </>
+          )}
+          {(record.status === 'pending' || record.status === 'completed') && (
+            <Popconfirm 
+              title="确定删除此演练？删除后无法恢复！" 
+              onConfirm={() => handleDelete(record.id)}
+            >
+              <Button 
+                icon={<DeleteOutlined />} 
+                danger
+                type="primary"
+                style={{ marginBottom: 8, color: '#fff' }}
+              >
+                删除
+              </Button>
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -195,7 +249,7 @@ const DrillManagement: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: 16 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
           新增演练
@@ -207,6 +261,7 @@ const DrillManagement: React.FC = () => {
         dataSource={drills}
         rowKey="id"
         loading={loading}
+        style={{ background: '#fff' }}
       />
 
       <Modal
