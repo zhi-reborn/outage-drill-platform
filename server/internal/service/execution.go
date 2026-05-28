@@ -233,17 +233,17 @@ func (s *ExecutionService) broadcastStepUpdate(execution *model.StepExecution, a
 	}
 
 	message := map[string]interface{}{
-		"execution_id":   execution.ID,
-		"drill_id":       execution.DrillID,
-		"step_order":     execution.StepOrder,
-		"step_name":      execution.StepName,
-		"status":         execution.Status,
-		"action":         action,
-		"start_time":     execution.StartTime,
-		"end_time":       execution.EndTime,
+		"execution_id":     execution.ID,
+		"drill_id":         execution.DrillID,
+		"step_order":       execution.StepOrder,
+		"step_name":        execution.StepName,
+		"status":           execution.Status,
+		"action":           action,
+		"start_time":       execution.StartTime,
+		"end_time":         execution.EndTime,
 		"duration_seconds": execution.DurationSeconds,
-		"assignee_id":    execution.AssigneeID,
-		"timestamp":      time.Now(),
+		"assignee_id":      execution.AssigneeID,
+		"timestamp":        time.Now(),
 	}
 
 	s.wsHub.BroadcastToDrill(execution.DrillID, "step_update", message)
@@ -289,12 +289,12 @@ func (s *ExecutionService) StartExecution(id uint) error {
 	}
 
 	now := time.Now()
-	
+
 	// 只有从pending状态开始时才设置开始时间
 	if execution.Status == "pending" {
 		execution.StartTime = &now
 	}
-	
+
 	execution.Status = "in_progress"
 	err = s.executionRepo.Update(execution)
 	if err != nil {
@@ -362,12 +362,12 @@ func (s *ExecutionService) CompleteExecution(id uint) error {
 	}
 
 	now := time.Now()
-	
+
 	// 如果是从pending状态直接完成，设置开始时间
 	if execution.Status == "pending" {
 		execution.StartTime = &now
 	}
-	
+
 	execution.Status = "completed"
 	execution.EndTime = &now
 

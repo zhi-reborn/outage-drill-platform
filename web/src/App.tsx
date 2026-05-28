@@ -29,23 +29,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        algorithm: undefined,
-        token: {
-          colorBgContainer: '#1A1F3A',
-          colorBgElevated: '#1A1F3A',
-          colorBorder: '#2D3748',
-          colorBorderSecondary: '#2D3748',
-          colorText: '#E5E7EB',
-          colorTextSecondary: '#9CA3AF',
-          colorFillSecondary: 'rgba(0, 217, 255, 0.08)',
-          colorFillTertiary: 'rgba(0, 217, 255, 0.04)',
-          colorFillQuaternary: 'rgba(0, 217, 255, 0.02)',
-        },
-      }}
-    >
+    <ConfigProvider locale={zhCN}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

@@ -173,8 +173,12 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
   }
 
   const phases = template.phases || []
+  const completedPhases = phases.filter(p => p.status === 'completed').length
   const totalStages = phases.reduce((acc, phase) => 
     acc + (phase.stages || []).length, 0
+  )
+  const completedStages = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).filter(s => s.status === 'completed').length, 0
   )
   const totalTasks = phases.reduce((acc, phase) => 
     acc + (phase.stages || []).reduce((stageAcc, stage) => 
@@ -186,7 +190,21 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
       stageAcc + (stage.tasks || []).filter(t => t.status === 'completed').length, 0
     ), 0
   )
-  const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  const totalSteps = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).reduce((stageAcc, stage) => 
+      stageAcc + (stage.tasks || []).reduce((taskAcc, task) => 
+        taskAcc + (task.operations || []).length, 0
+      ), 0
+    ), 0
+  )
+  const completedSteps = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).reduce((stageAcc, stage) => 
+      stageAcc + (stage.tasks || []).reduce((taskAcc, task) => 
+        taskAcc + (task.operations || []).filter(o => o.status === 'completed').length, 0
+      ), 0
+    ), 0
+  )
+  const overallProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
   const allExpanded = phases.length > 0 && phases.every(p => expandedPhases.has(p.id))
 
   return (
@@ -201,22 +219,22 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
             <div className="header-stats">
               <span className="stat-item">
                 <span className="stat-label">阶段</span>
-                <span className="stat-value">{phases.length}</span>
+                <span className="stat-value">{completedPhases}/{phases.length}</span>
               </span>
               <span className="stat-divider">|</span>
               <span className="stat-item">
                 <span className="stat-label">环节</span>
-                <span className="stat-value">{totalStages}</span>
+                <span className="stat-value">{completedStages}/{totalStages}</span>
               </span>
               <span className="stat-divider">|</span>
               <span className="stat-item">
                 <span className="stat-label">任务</span>
-                <span className="stat-value">{totalTasks}</span>
+                <span className="stat-value">{completedTasks}/{totalTasks}</span>
               </span>
               <span className="stat-divider">|</span>
               <span className="stat-item">
-                <span className="stat-label">进度</span>
-                <span className="stat-value">{overallProgress}%</span>
+                <span className="stat-label">步骤</span>
+                <span className="stat-value">{completedSteps}/{totalSteps}</span>
               </span>
             </div>
           </div>
@@ -539,7 +557,12 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
                 </Descriptions.Item>
               )}
               {selectedNode.assignee && (
-                <Descriptions.Item label="执行人">{selectedNode.assignee}</Descriptions.Item>
+                <Descriptions.Item label="执行人">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <TeamOutlined style={{ color: '#00D9FF' }} />
+                    {typeof selectedNode.assignee === 'object' ? selectedNode.assignee.name || '未命名' : selectedNode.assignee}
+                  </span>
+                </Descriptions.Item>
               )}
               {selectedNode.plannedDuration !== undefined && (
                 <Descriptions.Item label="计划时长">

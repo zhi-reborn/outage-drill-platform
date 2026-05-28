@@ -41,9 +41,15 @@ body {
   border-bottom: 1px solid var(--border-color);
 }
 
-:where(.ant-table-wrapper) .ant-table-tbody > tr:hover > td,
-:where(.ant-table-wrapper) .ant-table-tbody > tr.ant-table-row-hover > td,
-:where(.ant-table-wrapper) .ant-table .ant-table-tbody > tr:hover > .ant-table-cell {
+.ant-table-tbody > tr:hover > td {
+  background: rgba(0, 217, 255, 0.08) !important;
+}
+
+.ant-table-tbody > tr.ant-table-row-hover > td {
+  background: rgba(0, 217, 255, 0.08) !important;
+}
+
+.ant-table .ant-table-tbody > tr:hover > .ant-table-cell {
   background: rgba(0, 217, 255, 0.08) !important;
 }
 
