@@ -68,6 +68,22 @@ func (s *ExecutionService) GetUserTasks(userID uint) ([]*model.StepExecution, er
 	return s.executionRepo.FindByAssigneeID(userID)
 }
 
+func (s *ExecutionService) GetTaskByID(id uint) (*model.Task, error) {
+	return s.taskRepo.FindByID(id)
+}
+
+func (s *ExecutionService) GetOperationByID(id uint) (*model.Operation, error) {
+	return s.operationRepo.FindByID(id)
+}
+
+func (s *ExecutionService) GetStageByID(id uint) (*model.Stage, error) {
+	return s.stageRepo.FindByID(id)
+}
+
+func (s *ExecutionService) GetPhaseByID(id uint) (*model.Phase, error) {
+	return s.phaseRepo.FindByID(id)
+}
+
 func (s *ExecutionService) syncTaskStatus(execution *model.StepExecution) {
 	// 同步 task 状态
 	if execution.TaskID != nil && s.taskRepo != nil {
@@ -185,7 +201,6 @@ func (s *ExecutionService) broadcastStepUpdate(execution *model.StepExecution, a
 }
 
 func (s *ExecutionService) AssignStep(executionID, assigneeID uint) error {
-	// 修改：允许在任何状态下分配任务（管理员可以重新分配）
 	err := s.executionRepo.AssignStep(executionID, assigneeID)
 	if err != nil {
 		return err
@@ -196,13 +211,16 @@ func (s *ExecutionService) AssignStep(executionID, assigneeID uint) error {
 		return err
 	}
 
-	// 诊断日志：检查Assignee是否被正确加载
-	log.Printf("[DEBUG] AssignStep - executionID: %d, assigneeID: %d", executionID, assigneeID)
-	log.Printf("[DEBUG] After FindByID - execution.AssigneeID: %v", execution.AssigneeID)
-	if execution.Assignee != nil {
-		log.Printf("[DEBUG] Assignee loaded - ID: %d, Name: %s", execution.Assignee.ID, execution.Assignee.Name)
-	} else {
-		log.Printf("[DEBUG] Assignee is nil - Preload failed!")
+	// 同步执行人到关联的 operation 和 task
+	if execution.OperationID != nil && s.operationRepo != nil {
+		if err := s.operationRepo.UpdateExecutor(*execution.OperationID, &assigneeID); err != nil {
+			log.Printf("[WARN] Failed to sync executor to operation %d: %v", *execution.OperationID, err)
+		}
+	}
+	if execution.TaskID != nil && s.taskRepo != nil {
+		if err := s.taskRepo.UpdateExecutor(*execution.TaskID, &assigneeID); err != nil {
+			log.Printf("[WARN] Failed to sync executor to task %d: %v", *execution.TaskID, err)
+		}
 	}
 
 	s.broadcastStepUpdate(execution, "assigned")

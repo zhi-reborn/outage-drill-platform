@@ -271,7 +271,9 @@ const Dashboard: React.FC = () => {
                 <div className="card-value">
                   <Text className="value-text mono">
                     {selectedDrill.start_time ? 
-                      new Date(selectedDrill.start_time).toLocaleTimeString('zh-CN', { 
+                      new Date(selectedDrill.start_time).toLocaleString('zh-CN', { 
+                        month: '2-digit',
+                        day: '2-digit',
                         hour12: false,
                         hour: '2-digit',
                         minute: '2-digit',
@@ -792,7 +794,7 @@ const Dashboard: React.FC = () => {
           .card-value {
             display: flex;
             align-items: center;
-            min-width: 150px;
+            flex-wrap: wrap;
           }
 
           .value-text {

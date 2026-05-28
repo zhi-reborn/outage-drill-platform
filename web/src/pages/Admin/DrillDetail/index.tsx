@@ -172,22 +172,45 @@ const DrillDetail: React.FC = () => {
       title: '步骤',
       dataIndex: 'step_order',
       key: 'step_order',
-      width: 80,
+      width: 60,
+      align: 'center' as const,
     },
     {
       title: '步骤名称',
       dataIndex: 'step_name',
       key: 'step_name',
+      width: 180,
+      render: (name: string) => {
+        const idx = name.indexOf(' - ')
+        return idx > 0 ? name.substring(idx + 3) : name
+      },
+    },
+    {
+      title: '所属阶段',
+      key: 'phase',
+      width: 260,
+      render: (_: any, record: StepExecution) => {
+        const parts: string[] = []
+        if (record.phase_name) parts.push(record.phase_name)
+        if (record.stage_name) parts.push(record.stage_name)
+        if (record.task_name) parts.push(record.task_name)
+        if (parts.length > 0) {
+          return <Tag style={{ whiteSpace: 'normal', lineHeight: 1.4 }}>{parts.join(' / ')}</Tag>
+        }
+        return <Text type="secondary">-</Text>
+      },
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
+      width: 90,
       render: (status: string) => getStatusTag(status),
     },
     {
       title: '执行人',
       key: 'assignee',
+      width: 100,
       render: (_: any, record: StepExecution) => 
         record.assignee ? (
           <Space>
@@ -202,18 +225,21 @@ const DrillDetail: React.FC = () => {
       title: '开始时间',
       dataIndex: 'start_time',
       key: 'start_time',
+      width: 160,
       render: (time: string) => time ? new Date(time).toLocaleString() : '-',
     },
     {
       title: '结束时间',
       dataIndex: 'end_time',
       key: 'end_time',
+      width: 160,
       render: (time: string) => time ? new Date(time).toLocaleString() : '-',
     },
     {
       title: '耗时',
       dataIndex: 'duration_seconds',
       key: 'duration_seconds',
+      width: 80,
       render: (seconds: number) => {
         if (!seconds) return '-'
         const mins = Math.floor(seconds / 60)
@@ -224,7 +250,8 @@ const DrillDetail: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 350,
+      width: 220,
+      fixed: 'right' as const,
       render: (_: any, record: StepExecution) => (
         <Space wrap>
           {record.status === 'pending' && (
@@ -394,7 +421,7 @@ const DrillDetail: React.FC = () => {
                 </Space>
               ),
               children: (
-                <>
+                <div className="execution-list-container">
                   {executions.length === 0 && !loading && (
                     <Alert
                       message="暂无步骤执行记录"
@@ -405,17 +432,43 @@ const DrillDetail: React.FC = () => {
                       style={{ marginBottom: '16px' }}
                     />
                   )}
-                  <div style={{ marginBottom: '16px', textAlign: 'right' }}>
-                    <Button type="primary" onClick={handleSyncSteps} icon={<ReloadOutlined />}>
-                      同步状态到层级视图
+                  
+                  <div className="execution-header">
+                    <div className="execution-stats">
+                      <div className="stat-item">
+                        <span className="stat-value">{totalCount}</span>
+                        <span className="stat-label">总任务</span>
+                      </div>
+                      <div className="stat-item stat-pending">
+                        <span className="stat-value">{executions.filter(e => e.status === 'pending').length}</span>
+                        <span className="stat-label">待开始</span>
+                      </div>
+                      <div className="stat-item stat-progress">
+                        <span className="stat-value">{executions.filter(e => e.status === 'in_progress').length}</span>
+                        <span className="stat-label">进行中</span>
+                      </div>
+                      <div className="stat-item stat-completed">
+                        <span className="stat-value">{completedCount}</span>
+                        <span className="stat-label">已完成</span>
+                      </div>
+                    </div>
+                    <Button 
+                      type="primary" 
+                      onClick={handleSyncSteps} 
+                      icon={<ReloadOutlined />}
+                      className="sync-btn"
+                    >
+                      同步状态
                     </Button>
                   </div>
+                  
                   <Table
                     columns={columns}
                     dataSource={executions}
                     rowKey="id"
                     loading={loading}
                     pagination={false}
+                    scroll={{ x: 'max-content' }}
                     locale={{
                       emptyText: (
                         <Empty
@@ -424,9 +477,9 @@ const DrillDetail: React.FC = () => {
                         />
                       )
                     }}
-                    style={{ background: '#fff' }}
+                    className="execution-table"
                   />
-                </>
+                </div>
               )
             }
           ]}

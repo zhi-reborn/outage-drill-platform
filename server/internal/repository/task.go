@@ -60,7 +60,12 @@ func (r *TaskRepository) FindByStageID(stageID uint) ([]*model.Task, error) {
 
 func (r *TaskRepository) FindByStageIDWithOperations(stageID uint) ([]*model.Task, error) {
 	var tasks []*model.Task
-	err := r.db.Where("stage_id = ?", stageID).Order("`order` asc").Preload("Operations").Find(&tasks).Error
+	err := r.db.Where("stage_id = ?", stageID).Order("`order` asc").
+		Preload("Operations").
+		Preload("Operations.Executor").
+		Preload("Executor").
+		Preload("ResponsiblePerson").
+		Find(&tasks).Error
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +78,10 @@ func (r *TaskRepository) Update(task *model.Task) error {
 
 func (r *TaskRepository) UpdateStatus(id uint, status string) error {
 	return r.db.Model(&model.Task{}).Where("id = ?", id).Update("status", status).Error
+}
+
+func (r *TaskRepository) UpdateExecutor(id uint, executorID *uint) error {
+	return r.db.Model(&model.Task{}).Where("id = ?", id).Update("executor_id", executorID).Error
 }
 
 func (r *TaskRepository) Delete(id uint) error {

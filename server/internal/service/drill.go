@@ -10,13 +10,13 @@ import (
 )
 
 type DrillService struct {
-	drillRepo      *repository.DrillRepository
-	templateRepo   *repository.TemplateRepository
-	executionRepo  *repository.ExecutionRepository
-	taskRepo       *repository.TaskRepository
-	operationRepo  *repository.OperationRepository
-	stageRepo      *repository.StageRepository
-	phaseRepo      *repository.PhaseRepository
+	drillRepo     *repository.DrillRepository
+	templateRepo  *repository.TemplateRepository
+	executionRepo *repository.ExecutionRepository
+	taskRepo      *repository.TaskRepository
+	operationRepo *repository.OperationRepository
+	stageRepo     *repository.StageRepository
+	phaseRepo     *repository.PhaseRepository
 }
 
 func NewDrillService(
@@ -29,13 +29,13 @@ func NewDrillService(
 	phaseRepo *repository.PhaseRepository,
 ) *DrillService {
 	return &DrillService{
-		drillRepo:      drillRepo,
-		templateRepo:   templateRepo,
-		executionRepo:  executionRepo,
-		taskRepo:       taskRepo,
-		operationRepo:  operationRepo,
-		stageRepo:      stageRepo,
-		phaseRepo:      phaseRepo,
+		drillRepo:     drillRepo,
+		templateRepo:  templateRepo,
+		executionRepo: executionRepo,
+		taskRepo:      taskRepo,
+		operationRepo: operationRepo,
+		stageRepo:     stageRepo,
+		phaseRepo:     phaseRepo,
 	}
 }
 
@@ -275,6 +275,13 @@ func (s *DrillService) SyncDrillSteps(drillID uint) error {
 					s.taskRepo.UpdateStatus(mapping.TaskID, exec.Status)
 					if mapping.OperationID != nil {
 						s.operationRepo.UpdateStatus(*mapping.OperationID, exec.Status)
+					}
+				}
+				// 同步执行人到 tasks 和 operations 表
+				if exec.AssigneeID != nil {
+					s.taskRepo.UpdateExecutor(mapping.TaskID, exec.AssigneeID)
+					if mapping.OperationID != nil {
+						s.operationRepo.UpdateExecutor(*mapping.OperationID, exec.AssigneeID)
 					}
 				}
 				// 收集需要级联更新的 stage

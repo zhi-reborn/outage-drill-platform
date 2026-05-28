@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { Typography, Tag, Progress, Space, Button, Empty, Spin } from 'antd'
+import { Spin, Alert, Button, Tag, Progress, Drawer, Descriptions, Empty, Popover } from 'antd'
 import { 
-  PlayCircleOutlined,
-  PauseCircleOutlined,
-  CheckCircleOutlined,
+  ReloadOutlined, 
   ClockCircleOutlined,
+  CheckCircleOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
   TeamOutlined,
-  UserOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-  ApiOutlined,
-  BranchesOutlined
+  ApartmentOutlined,
+  RightOutlined,
+  DownOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
+import { Typography } from 'antd'
 import { workflowService } from '../../services/workflow'
-import type { Phase, Stage, Task, Operation, DrillTemplateWithPhases } from '../../types'
+import { DrillTemplate } from '../../types'
 
 const { Text, Title } = Typography
 
@@ -23,13 +24,46 @@ interface WorkflowHierarchyDisplayProps {
   onRefresh?: () => void
 }
 
+interface NodeDetail {
+  type: 'phase' | 'stage' | 'task' | 'operation'
+  name: string
+  status: string
+  mode?: string
+  department?: string
+  plannedDuration?: number
+  actualDuration?: number
+  description?: string
+  assignee?: string
+  operations?: any[]
+  tasks?: any[]
+  stages?: any[]
+}
+
 const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({ 
-  templateId,
+  templateId, 
   drillId,
-  onRefresh
+  onRefresh 
 }) => {
-  const [template, setTemplate] = useState<DrillTemplateWithPhases | null>(null)
+  const [template, setTemplate] = useState<DrillTemplate | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>('')
+  const [selectedNode, setSelectedNode] = useState<NodeDetail | null>(null)
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  const [expandedPhases, setExpandedPhases] = useState<Set<number>>(new Set())
+
+  const togglePhase = (phaseId: number) => {
+    setExpandedPhases(prev => {
+      const next = new Set(prev)
+      if (next.has(phaseId)) {
+        next.delete(phaseId)
+      } else {
+        next.add(phaseId)
+      }
+      return next
+    })
+  }
+
+  const isPhaseExpanded = (phaseId: number) => expandedPhases.has(phaseId)
 
   useEffect(() => {
     loadHierarchy()
@@ -37,20 +71,14 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
 
   const loadHierarchy = async () => {
     setLoading(true)
+    setError('')
     try {
       const data = await workflowService.getTemplateFullHierarchy(templateId)
       setTemplate(data)
-    } catch (error) {
-      console.error('加载层级结构失败:', error)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load hierarchy')
     }
     setLoading(false)
-  }
-
-  const handleRefresh = () => {
-    loadHierarchy()
-    if (onRefresh) {
-      onRefresh()
-    }
   }
 
   const getStatusColor = (status: string) => {
@@ -59,7 +87,7 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
       in_progress: '#00D9FF',
       paused: '#F59E0B',
       completed: '#10B981',
-      failed: '#EF4444'
+      timeout: '#EF4444'
     }
     return colors[status] || '#6B7280'
   }
@@ -70,961 +98,1319 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
       in_progress: '进行中',
       paused: '已暂停',
       completed: '已完成',
-      failed: '失败'
+      timeout: '已超时'
     }
     return texts[status] || status
   }
 
-  const getExecutionModeText = (mode: string) => {
-    return mode === 'serial' ? '串行' : '并行'
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircleOutlined />
+      case 'in_progress':
+        return <PlayCircleOutlined />
+      case 'paused':
+        return <PauseCircleOutlined />
+      default:
+        return <ClockCircleOutlined />
+    }
   }
 
-  const calculateProgress = (status: string) => {
+  const calculateProgress = (status: string, tasks?: any[]) => {
     if (status === 'completed') return 100
-    if (status === 'in_progress') return 50
-    if (status === 'paused') return 25
-    return 0
+    if (status === 'pending') return 0
+    if (tasks && tasks.length > 0) {
+      const completed = tasks.filter(t => t.status === 'completed').length
+      return Math.round((completed / tasks.length) * 100)
+    }
+    return 50
   }
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '0秒'
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '-'
+    const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    if (hours > 0) {
-      return `${hours}小时${minutes}分钟`
-    }
-    if (minutes > 0) {
-      return `${minutes}分钟${secs}秒`
-    }
-    return `${secs}秒`
+    return mins > 0 ? `${mins}分${secs}秒` : `${secs}秒`
+  }
+
+  const handleNodeClick = (node: NodeDetail) => {
+    setSelectedNode(node)
+    setDrawerVisible(true)
+  }
+
+  const closeDrawer = () => {
+    setDrawerVisible(false)
+    setSelectedNode(null)
   }
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-grid">
-          <div className="grid-line"></div>
-          <div className="grid-line"></div>
-        </div>
-        <div className="loading-content">
-          <div className="loading-icon">
-            <BranchesOutlined />
-          </div>
-          <Text className="loading-text">正在加载流程结构...</Text>
-        </div>
+      <div className="hierarchy-loading">
+        <Spin size="large" />
+        <Text className="loading-text">正在加载层级视图...</Text>
       </div>
     )
   }
 
-  if (!template || !template.phases || template.phases.length === 0) {
+  if (error) {
     return (
-      <div className="empty-container">
-        <div className="empty-icon">
-          <BranchesOutlined />
-        </div>
-        <Title level={3}>暂无流程结构</Title>
-        <Text className="empty-desc">请先在模板管理中配置层级结构</Text>
-        <Button 
-          className="action-button"
-          onClick={() => window.location.href = '/admin/templates'}
-          icon={<BranchesOutlined />}
-        >
-          配置流程结构
-        </Button>
-      </div>
+      <Alert
+        message="加载失败"
+        description={error}
+        type="error"
+        showIcon
+        action={
+          <Button size="small" onClick={loadHierarchy}>
+            重试
+          </Button>
+        }
+      />
     )
   }
+
+  if (!template) {
+    return <Empty description="暂无层级数据" />
+  }
+
+  const phases = template.phases || []
+  const totalTasks = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).reduce((stageAcc, stage) => 
+      stageAcc + (stage.tasks || []).length, 0
+    ), 0
+  )
+  const completedTasks = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).reduce((stageAcc, stage) => 
+      stageAcc + (stage.tasks || []).filter(t => t.status === 'completed').length, 0
+    ), 0
+  )
+  const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+  const allExpanded = phases.length > 0 && phases.every(p => expandedPhases.has(p.id))
 
   return (
-    <div className="workflow-container">
-      <div className="workflow-header">
+    <div className="hierarchy-container">
+      <div className="hierarchy-header">
         <div className="header-left">
           <div className="template-icon">
-            <ThunderboltOutlined />
+            <ApartmentOutlined />
           </div>
-          <div className="template-info">
-            <Title level={2} className="template-name">{template.name}</Title>
-            <div className="template-meta">
-              <div className="meta-item">
-                <ApiOutlined className="meta-icon" />
-                <Text className="meta-text">流程可视化</Text>
-              </div>
-              <div className="meta-item">
-                <BranchesOutlined className="meta-icon" />
-                <Text className="meta-text">{template.phases.length} 个阶段</Text>
-              </div>
+          <div className="header-info">
+            <Title level={3} className="template-name">{template.name}</Title>
+            <div className="header-stats">
+              <span className="stat-item">
+                <span className="stat-label">阶段</span>
+                <span className="stat-value">{phases.length}</span>
+              </span>
+              <span className="stat-divider">|</span>
+              <span className="stat-item">
+                <span className="stat-label">任务</span>
+                <span className="stat-value">{totalTasks}</span>
+              </span>
+              <span className="stat-divider">|</span>
+              <span className="stat-item">
+                <span className="stat-label">进度</span>
+                <span className="stat-value">{overallProgress}%</span>
+              </span>
             </div>
           </div>
         </div>
-        
         <div className="header-right">
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={handleRefresh}
-            className="refresh-button"
+          <button
+            className="header-expand-toggle"
+            onClick={() => {
+              if (allExpanded) {
+                setExpandedPhases(new Set())
+              } else {
+                setExpandedPhases(new Set(phases.map(p => p.id)))
+              }
+            }}
+            title={allExpanded ? '全部收起' : '全部展开'}
           >
-            刷新数据
+            <DownOutlined style={{ transform: allExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }} />
+            <span>{allExpanded ? '收起' : '展开'}</span>
+          </button>
+          <div className="progress-ring">
+            <Progress 
+              type="circle" 
+              percent={overallProgress} 
+              size={56}
+              strokeColor="#00D9FF"
+              trailColor="#2D3748"
+              format={(p) => <span className="progress-num">{p}%</span>}
+            />
+          </div>
+          <Button 
+            icon={<ReloadOutlined />} 
+            onClick={loadHierarchy}
+            className="refresh-btn"
+          >
+            刷新
           </Button>
         </div>
       </div>
 
-      <div className="workflow-content">
-        {template.phases.map((phase, phaseIndex) => (
-          <div key={`phase-${phase.id}`} className="phase-section">
-            <div className="phase-header">
-              <div className="phase-number">
-                <Text className="number-text">{phase.order}</Text>
-              </div>
-              <div className="phase-info">
-                <div className="phase-title-row">
-                  <Title level={3} className="phase-name">{phase.name}</Title>
-                  <div className="phase-status">
-                    <div 
-                      className="status-indicator"
-                      style={{ background: getStatusColor(phase.status) }}
-                    />
-                    <Tag color={getStatusColor(phase.status)} className="status-tag">
-                      {getStatusText(phase.status)}
-                    </Tag>
+      <div className="flow-overview">
+        {phases.map((phase, phaseIdx) => {
+          const allTasks = (phase.stages || []).flatMap((s: any) => s.tasks || [])
+          const allOperations = allTasks.flatMap((t: any) => (t.operations || []).map((op: any) => ({
+            ...op,
+            _taskName: t.name,
+            _executor: op.executor || t.executor || t.responsible_person,
+            _department: t.department
+          })))
+          const completedOps = allOperations.filter((op: any) => op.status === 'completed').length
+          const inProgressOps = allOperations.filter((op: any) => op.status === 'in_progress').length
+          const pendingOps = allOperations.filter((op: any) => op.status === 'pending').length
+          const completedOpList = allOperations.filter((op: any) => op.status === 'completed')
+          const inProgressOpList = allOperations.filter((op: any) => op.status === 'in_progress')
+          const pendingOpList = allOperations.filter((op: any) => op.status === 'pending')
+          const totalOps = allOperations.length
+          const totalTasks = allTasks.length
+          const completedTasks = allTasks.filter((t: any) => t.status === 'completed').length
+          const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+          
+          const currentStage = (phase.stages || []).find((s: any) => s.status === 'in_progress')
+          const blockedTasks = allTasks.filter((t: any) => t.status === 'in_progress' && t.planned_duration && t.actual_duration && t.actual_duration > t.planned_duration)
+          
+          const renderOpList = (ops: any[], statusColor: string) => (
+            <div className="chip-popover-list">
+              {ops.length === 0 ? (
+                <div className="chip-popover-empty">暂无步骤</div>
+              ) : (
+                ops.map((op, idx) => {
+                  const executorName = op._executor?.name
+                  return (
+                    <div key={idx} className="chip-popover-item">
+                      <span className="chip-popover-dot" style={{ background: statusColor }} />
+                      <div className="chip-popover-info">
+                        <span className="chip-popover-name">{op.name}</span>
+                        <span className="chip-popover-task">{op._taskName}</span>
+                        <span className="chip-popover-executor">
+                          <TeamOutlined style={{ fontSize: 10, marginRight: 3 }} />
+                          {executorName || '未分配'}
+                        </span>
+                      </div>
+                      {op._department && <span className="chip-popover-dept">{op._department}</span>}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )
+
+          return (
+            <div key={`phase-${phase.id}`} className="phase-block">
+              <div className="phase-header" onClick={() => handleNodeClick({
+                type: 'phase',
+                name: phase.name,
+                status: phase.status,
+                mode: phase.execution_mode,
+                plannedDuration: phase.planned_duration,
+                stages: phase.stages
+              })}>
+                <div className="phase-header-left">
+                  <div className="node-number">{phaseIdx + 1}</div>
+                  <div className="node-content">
+                    <div className="node-name">{phase.name}</div>
+                    <div className="node-meta">
+                      <span className="meta-tag mode">{phase.execution_mode === 'parallel' ? '并行' : '串行'}</span>
+                      <Tag 
+                        color={getStatusColor(phase.status)} 
+                        className="node-status-tag"
+                        icon={getStatusIcon(phase.status)}
+                      >
+                        {getStatusText(phase.status)}
+                      </Tag>
+                    </div>
                   </div>
                 </div>
-                <div className="phase-meta">
-                  <Tag color={phase.execution_mode === 'serial' ? 'cyan' : 'purple'} className="mode-tag">
-                    {getExecutionModeText(phase.execution_mode)}
-                  </Tag>
-                  {phase.duration_seconds > 0 && (
-                    <div className="duration-info">
-                      <ClockCircleOutlined className="duration-icon" />
-                      <Text className="duration-text">{formatDuration(phase.duration_seconds)}</Text>
+                <div className="phase-stats" onClick={(e) => e.stopPropagation()}>
+                  <Popover
+                    trigger="click"
+                    placement="bottomLeft"
+                    content={renderOpList(completedOpList, '#10B981')}
+                    title={<span className="chip-popover-title">已完成步骤 ({completedOps})</span>}
+                    overlayClassName="chip-popover"
+                  >
+                    <div className="stat-chip completed clickable">
+                      <span className="chip-num">{completedOps}</span>
+                      <span className="chip-label">已完成</span>
                     </div>
-                  )}
-                  <div className="progress-info">
+                  </Popover>
+                  <Popover
+                    trigger="click"
+                    placement="bottom"
+                    content={renderOpList(inProgressOpList, '#00D9FF')}
+                    title={<span className="chip-popover-title">进行中步骤 ({inProgressOps})</span>}
+                    overlayClassName="chip-popover"
+                  >
+                    <div className="stat-chip in-progress clickable">
+                      <span className="chip-num">{inProgressOps}</span>
+                      <span className="chip-label">进行中</span>
+                    </div>
+                  </Popover>
+                  <Popover
+                    trigger="click"
+                    placement="bottomRight"
+                    content={renderOpList(pendingOpList, '#6B7280')}
+                    title={<span className="chip-popover-title">待开始步骤 ({pendingOps})</span>}
+                    overlayClassName="chip-popover"
+                  >
+                    <div className="stat-chip pending clickable">
+                      <span className="chip-num">{pendingOps}</span>
+                      <span className="chip-label">待开始</span>
+                    </div>
+                  </Popover>
+                </div>
+                <div className="phase-header-right">
+                  <div className="phase-progress-ring">
                     <Progress 
-                      type="line"
-                      percent={calculateProgress(phase.status)} 
+                      type="circle" 
+                      percent={progressPercent} 
+                      size={40}
                       strokeColor={getStatusColor(phase.status)}
                       trailColor="#2D3748"
-                      showInfo={false}
-                      className="progress-bar"
+                      format={(p) => <span className="phase-progress-text">{p}%</span>}
                     />
-                    <Text className="progress-text">{calculateProgress(phase.status)}%</Text>
                   </div>
+                  <button
+                    className={`phase-expand-btn ${isPhaseExpanded(phase.id) ? 'expanded' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      togglePhase(phase.id)
+                    }}
+                    title={isPhaseExpanded(phase.id) ? '收起详情' : '展开详情'}
+                  >
+                    <DownOutlined />
+                  </button>
                 </div>
               </div>
-            </div>
 
-            {phase.stages && phase.stages.length > 0 && (
-              <div className="stages-container">
-                <div className="connection-line"></div>
-                {phase.stages.map((stage, stageIndex) => (
-                  <div key={`stage-${stage.id}`} className="stage-section">
-                    <div className="stage-header">
-                      <div className="stage-number">
-                        <Text className="number-text">{stage.order}</Text>
-                      </div>
-                      <div className="stage-info">
-                        <div className="stage-title-row">
-                          <Title level={4} className="stage-name">{stage.name}</Title>
-                          <div className="stage-status">
+              {isPhaseExpanded(phase.id) && (
+                <>
+                  {currentStage && (
+                    <div className="phase-alert">
+                      <span className="alert-icon">▶</span>
+                      <span className="alert-text">当前环节: <strong>{currentStage.name}</strong></span>
+                      {blockedTasks.length > 0 && (
+                        <span className="alert-warning">⚠ {blockedTasks.length}个任务超时</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="stages-flow">
+                    {(phase.stages || []).map((stage, stageIdx) => {
+                  const stageTasks = stage.tasks || []
+                  const stageCompleted = stageTasks.filter((t: any) => t.status === 'completed').length
+                  const stageTotal = stageTasks.length
+                  const stageProgress = stageTotal > 0 ? Math.round((stageCompleted / stageTotal) * 100) : 0
+                  
+                  return (
+                    <div key={`stage-${stage.id}`} className="stage-group">
+                      {stageIdx > 0 && <div className="flow-arrow"><RightOutlined /></div>}
+                      <div 
+                        className="stage-node" 
+                        onClick={() => handleNodeClick({
+                          type: 'stage',
+                          name: stage.name,
+                          status: stage.status,
+                          mode: stage.execution_mode,
+                          tasks: stage.tasks
+                        })}
+                      >
+                        <div className="stage-header-row">
+                          <div className="stage-dot" style={{ background: getStatusColor(stage.status) }} />
+                          <span className="stage-label">{stage.name}</span>
+                          <span className="stage-status-badge" style={{ background: getStatusColor(stage.status) }}>
+                            {stage.status === 'completed' ? '✓' : stage.status === 'in_progress' ? '▶' : '○'}
+                          </span>
+                        </div>
+                        <div className="stage-summary">
+                          <span className="summary-item">
+                            <span className="summary-dot completed" />
+                            <span>{stageCompleted}</span>
+                          </span>
+                          <span className="summary-divider">/</span>
+                          <span className="summary-item">
+                            <span>{stageTotal}</span>
+                          </span>
+                        </div>
+                        {stageTotal > 0 && (
+                          <div className="stage-progress-bar">
                             <div 
-                              className="status-indicator-small"
-                              style={{ background: getStatusColor(stage.status) }}
-                            />
-                            <Tag color={getStatusColor(stage.status)} className="status-tag-small">
-                              {getStatusText(stage.status)}
-                            </Tag>
-                          </div>
-                        </div>
-                        <div className="stage-meta">
-                          <Tag color={stage.execution_mode === 'serial' ? 'cyan' : 'purple'} className="mode-tag-small">
-                            {getExecutionModeText(stage.execution_mode)}
-                          </Tag>
-                          <div className="progress-info-small">
-                            <Progress 
-                              type="line"
-                              percent={calculateProgress(stage.status)} 
-                              strokeColor={getStatusColor(stage.status)}
-                              trailColor="#2D3748"
-                              showInfo={false}
-                              className="progress-bar-small"
+                              className="stage-progress-fill" 
+                              style={{ 
+                                width: `${stageProgress}%`,
+                                background: getStatusColor(stage.status)
+                              }} 
                             />
                           </div>
-                        </div>
+                        )}
+                      </div>
+                      
+                      <div className="tasks-row">
+                        {stageTasks.map((task, taskIdx) => {
+                          const isTimeout = task.planned_duration && task.actual_duration && task.actual_duration > task.planned_duration
+                          return (
+                            <div 
+                              key={`task-${task.id}`} 
+                              className={`task-node ${isTimeout ? 'task-timeout' : ''}`}
+                              onClick={() => handleNodeClick({
+                                type: 'task',
+                                name: task.name,
+                                status: task.status,
+                                mode: task.execution_mode,
+                                department: task.department,
+                                plannedDuration: task.planned_duration,
+                                actualDuration: task.actual_duration,
+                                description: task.description,
+                                assignee: task.executor,
+                                operations: task.operations
+                              })}
+                            >
+                              <div className="task-dot" style={{ background: isTimeout ? '#EF4444' : getStatusColor(task.status) }} />
+                              <span className="task-label">{task.name}</span>
+                              {task.department && <span className="task-dept">{task.department}</span>}
+                              {isTimeout && <span className="task-timeout-icon">⚠</span>}
+                              {(task.operations || []).length > 0 && (
+                                <span className="task-op-count">{(task.operations || []).length}</span>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
+                  )
+                })}
+              </div>
+                </>
+              )}
 
-                    {stage.tasks && stage.tasks.length > 0 && (
-                      <div className="tasks-grid">
-                        {stage.tasks.map((task, taskIndex) => (
-                          <div key={`task-${task.id}`} className="task-card">
-                            <div className="task-header">
-                              <div className="task-number">
-                                <Text className="number-text-small">{task.order}</Text>
-                              </div>
-                              <div className="task-status-icon">
-                                {task.status === 'completed' && <CheckCircleOutlined style={{ color: getStatusColor(task.status) }} />}
-                                {task.status === 'in_progress' && <PlayCircleOutlined style={{ color: getStatusColor(task.status) }} />}
-                                {task.status === 'paused' && <PauseCircleOutlined style={{ color: getStatusColor(task.status) }} />}
-                                {task.status === 'pending' && <ClockCircleOutlined style={{ color: getStatusColor(task.status) }} />}
-                              </div>
-                            </div>
-                            
-                            <div className="task-content">
-                              <Title level={5} className="task-name">{task.name}</Title>
-                              <div className="task-tags">
-                                <Tag color={task.execution_mode === 'serial' ? 'cyan' : 'purple'} className="task-mode-tag">
-                                  {getExecutionModeText(task.execution_mode)}
-                                </Tag>
-                                <Tag color={getStatusColor(task.status)} className="task-status-tag">
-                                  {getStatusText(task.status)}
-                                </Tag>
-                              </div>
-                              
-                              {task.department && (
-                                <div className="task-department">
-                                  <TeamOutlined className="department-icon" />
-                                  <Text className="department-text">{task.department}</Text>
-                                </div>
-                              )}
-                              
-                              <div className="task-time">
-                                {task.estimated_duration > 0 && (
-                                  <div className="time-item">
-                                    <ClockCircleOutlined className="time-icon" />
-                                    <Text className="time-text">预计: {task.estimated_duration}分钟</Text>
-                                  </div>
-                                )}
-                                {task.duration_seconds > 0 && (
-                                  <div className="time-item">
-                                    <CheckCircleOutlined className="time-icon" />
-                                    <Text className="time-text">实际: {formatDuration(task.duration_seconds)}</Text>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+              {phaseIdx < phases.length - 1 && <div className="phase-connector" />}
+            </div>
+          )
+        })}
+      </div>
 
-                            {task.operations && task.operations.length > 0 && (
-                              <div className="operations-container">
-                                <div className="operations-header">
-                                  <Text className="operations-label">操作步骤</Text>
-                                  <Text className="operations-count">{task.operations.length}</Text>
-                                </div>
-                                <div className="operations-list">
-                                  {task.operations.map((operation) => (
-                                    <div key={`operation-${operation.id}`} className="operation-item">
-                                      <div 
-                                        className="operation-status-dot"
-                                        style={{ background: getStatusColor(operation.status) }}
-                                      />
-                                      <Text className="operation-name">{operation.name}</Text>
-                                      <Tag color={getStatusColor(operation.status)} className="operation-status-tag">
-                                        {getStatusText(operation.status)}
-                                      </Tag>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+      <Drawer
+        title={selectedNode ? (
+          <div className="drawer-title">
+            <span className="drawer-type">{selectedNode.type === 'phase' ? '阶段' : selectedNode.type === 'stage' ? '环节' : selectedNode.type === 'task' ? '任务' : '操作'}</span>
+            <span className="drawer-name">{selectedNode.name}</span>
+          </div>
+        ) : ''}
+        open={drawerVisible}
+        onClose={closeDrawer}
+        width={400}
+        className="node-detail-drawer"
+      >
+        {selectedNode && (
+          <div className="detail-content">
+            <div className="detail-status-row">
+              <span className="detail-label">状态</span>
+              <Tag 
+                color={getStatusColor(selectedNode.status)}
+                icon={getStatusIcon(selectedNode.status)}
+                style={{ fontSize: '14px', padding: '4px 12px' }}
+              >
+                {getStatusText(selectedNode.status)}
+              </Tag>
+            </div>
+
+            <Descriptions column={1} bordered size="small" className="detail-desc">
+              {selectedNode.mode && (
+                <Descriptions.Item label="执行模式">
+                  {selectedNode.mode === 'parallel' ? '并行执行' : '串行执行'}
+                </Descriptions.Item>
+              )}
+              {selectedNode.department && (
+                <Descriptions.Item label="责任部门">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <TeamOutlined style={{ color: '#9333EA' }} />
+                    {selectedNode.department}
+                  </span>
+                </Descriptions.Item>
+              )}
+              {selectedNode.assignee && (
+                <Descriptions.Item label="执行人">{selectedNode.assignee}</Descriptions.Item>
+              )}
+              {selectedNode.plannedDuration !== undefined && (
+                <Descriptions.Item label="计划时长">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ClockCircleOutlined style={{ color: '#F59E0B' }} />
+                    {formatDuration(selectedNode.plannedDuration)}
+                  </span>
+                </Descriptions.Item>
+              )}
+              {selectedNode.actualDuration !== undefined && selectedNode.actualDuration > 0 && (
+                <Descriptions.Item label="实际耗时">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ClockCircleOutlined style={{ color: '#10B981' }} />
+                    {formatDuration(selectedNode.actualDuration)}
+                  </span>
+                </Descriptions.Item>
+              )}
+              {selectedNode.description && (
+                <Descriptions.Item label="描述">
+                  <span style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                    <FileTextOutlined style={{ color: '#00D9FF', marginTop: '3px' }} />
+                    {selectedNode.description}
+                  </span>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
+            {selectedNode.type === 'phase' && selectedNode.stages && (
+              <div className="detail-children">
+                <div className="detail-section-title">环节列表</div>
+                {selectedNode.stages.map((stage: any, idx: number) => (
+                  <div key={idx} className="detail-child-item" onClick={() => handleNodeClick({
+                    type: 'stage',
+                    name: stage.name,
+                    status: stage.status,
+                    mode: stage.execution_mode,
+                    tasks: stage.tasks
+                  })}>
+                    <div className="child-dot" style={{ background: getStatusColor(stage.status) }} />
+                    <span className="child-name">{stage.name}</span>
+                    <Tag color={getStatusColor(stage.status)} className="child-tag">
+                      {getStatusText(stage.status)}
+                    </Tag>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedNode.type === 'stage' && selectedNode.tasks && (
+              <div className="detail-children">
+                <div className="detail-section-title">任务列表</div>
+                {selectedNode.tasks.map((task: any, idx: number) => (
+                  <div key={idx} className="detail-child-item" onClick={() => handleNodeClick({
+                    type: 'task',
+                    name: task.name,
+                    status: task.status,
+                    mode: task.execution_mode,
+                    department: task.department,
+                    plannedDuration: task.planned_duration,
+                    actualDuration: task.actual_duration,
+                    description: task.description,
+                    assignee: task.executor,
+                    operations: task.operations
+                  })}>
+                    <div className="child-dot" style={{ background: getStatusColor(task.status) }} />
+                    <span className="child-name">{task.name}</span>
+                    <Tag color={getStatusColor(task.status)} className="child-tag">
+                      {getStatusText(task.status)}
+                    </Tag>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedNode.type === 'task' && selectedNode.operations && selectedNode.operations.length > 0 && (
+              <div className="detail-children">
+                <div className="detail-section-title">操作步骤 ({selectedNode.operations.length})</div>
+                {selectedNode.operations.map((op: any, idx: number) => (
+                  <div key={idx} className="detail-operation-item" onClick={() => handleNodeClick({
+                    type: 'operation',
+                    name: op.name,
+                    status: op.status,
+                    description: op.description,
+                    plannedDuration: op.planned_duration
+                  })}>
+                    <div className="op-dot" style={{ background: getStatusColor(op.status) }} />
+                    <span className="op-name">{op.name}</span>
+                    <span className="op-duration">{formatDuration(op.planned_duration)}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        ))}
-      </div>
+        )}
+      </Drawer>
 
       <style>
         {`
           @import url('https://fonts.font.im/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono:wght@400;500;600;700&display=swap');
 
-          :root {
-            --primary-cyan: #00D9FF;
-            --primary-purple: #9333EA;
-            --dark-bg: #0A0E27;
-            --card-bg: #1A1F3A;
-            --text-primary: #E5E7EB;
-            --text-secondary: #9CA3AF;
-            --border-color: #2D3748;
-            --success-green: #10B981;
-            --warning-orange: #F59E0B;
-            --error-red: #EF4444;
+          .hierarchy-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            gap: 16px;
+          }
+          .loading-text {
+            color: #9CA3AF !important;
+            font-family: 'Share Tech Mono', monospace;
           }
 
-          .workflow-container .ant-typography {
+          .hierarchy-container {
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 340px);
+            min-height: 300px;
+            overflow: hidden;
+          }
+          .hierarchy-container .ant-typography {
             color: #E5E7EB !important;
           }
 
-          .workflow-container .ant-typography.template-name {
-            color: #00D9FF !important;
-          }
-
-          .workflow-container {
-            background: transparent;
-          }
-
-          .workflow-header {
+          .hierarchy-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 24px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            margin-bottom: 32px;
+            padding: 10px 20px;
+            background: #1A1F3A;
+            border: 1px solid #2D3748;
+            border-radius: 12px;
+            margin-bottom: 12px;
             position: relative;
+            flex-shrink: 0;
           }
-
-          .workflow-header::before {
+          .hierarchy-header::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-cyan), var(--primary-purple));
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00D9FF, #9333EA);
+            border-radius: 12px 12px 0 0;
           }
-
           .header-left {
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 12px;
           }
-
           .template-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
-            border-radius: 16px;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #00D9FF, #9333EA);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 30px;
-            color: var(--dark-bg);
+            font-size: 18px;
+            color: #0A0E27;
+            flex-shrink: 0;
           }
-
-          .template-info {
+          .header-info {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 2px;
           }
-
           .template-name {
             color: #00D9FF !important;
             font-family: 'Orbitron', sans-serif;
-            font-size: 24px;
+            font-size: 15px !important;
             font-weight: 700;
-            margin: 0;
-            text-shadow: 0 0 12px rgba(0, 217, 255, 0.4);
+            margin: 0 !important;
+            line-height: 1.2 !important;
+            text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
           }
-
-          .template-meta {
-            display: flex;
-            gap: 16px;
-          }
-
-          .meta-item {
+          .header-stats {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
           }
-
-          .meta-icon {
-            color: var(--primary-cyan);
-            font-size: 16px;
+          .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
           }
-
-          .meta-text {
-            color: var(--text-secondary);
+          .stat-label {
+            color: #9CA3AF;
             font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+          }
+          .stat-value {
+            color: #00D9FF;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+          }
+          .stat-divider {
+            color: #2D3748;
             font-size: 12px;
           }
-
-          .refresh-button {
+          .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .progress-num {
+            color: #00D9FF;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+          }
+          .refresh-btn {
             background: transparent;
-            border: 1px solid var(--primary-cyan);
-            color: var(--primary-cyan);
+            border: 1px solid #00D9FF;
+            color: #00D9FF;
             font-family: 'Rajdhani', sans-serif;
             font-weight: 600;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
+            font-size: 12px;
+            border-radius: 6px;
+            padding: 2px 10px;
+            height: 28px;
           }
-
-          .refresh-button:hover {
+          .refresh-btn:hover {
             background: rgba(0, 217, 255, 0.1);
-            border-color: var(--primary-purple);
-            color: var(--primary-purple);
+          }
+          .header-expand-toggle {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(0, 217, 255, 0.08);
+            border: 1px solid rgba(0, 217, 255, 0.25);
+            color: #00D9FF;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            border-radius: 6px;
+            padding: 2px 10px;
+            height: 28px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+          }
+          .header-expand-toggle:hover {
+            background: rgba(0, 217, 255, 0.18);
+            border-color: #00D9FF;
+          }
+          .header-expand-toggle span {
+            line-height: 1;
           }
 
-          .workflow-content {
+          .flow-overview {
             display: flex;
             flex-direction: column;
-            gap: 32px;
+            gap: 6px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
           }
 
-          .phase-section {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 32px;
+          .phase-block {
+            background: #1A1F3A;
+            border: 1px solid #2D3748;
+            border-radius: 12px;
+            padding: 10px 16px;
             position: relative;
-          }
-
-          .phase-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--primary-cyan);
+            flex-shrink: 0;
           }
 
           .phase-header {
             display: flex;
             align-items: center;
-            gap: 24px;
-            margin-bottom: 24px;
+            gap: 16px;
+            cursor: pointer;
+            padding: 8px 0;
+            flex-shrink: 0;
           }
-
-          .phase-number {
-            width: 50px;
-            height: 50px;
-            background: rgba(0, 217, 255, 0.1);
-            border: 2px solid var(--primary-cyan);
-            border-radius: 12px;
+          .phase-header:hover .node-name {
+            color: #00D9FF;
+          }
+          .phase-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+          }
+          .phase-header-right {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .phase-expand-btn {
+            width: 26px;
+            height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: rgba(0, 217, 255, 0.08);
+            border: 1px solid rgba(0, 217, 255, 0.25);
+            border-radius: 6px;
+            color: #00D9FF;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            flex-shrink: 0;
           }
-
-          .number-text {
-            color: var(--primary-cyan);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 24px;
+          .phase-expand-btn:hover {
+            background: rgba(0, 217, 255, 0.18);
+            border-color: #00D9FF;
+          }
+          .phase-expand-btn.expanded {
+            transform: rotate(180deg);
+            background: rgba(0, 217, 255, 0.15);
+          }
+          .phase-stats {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+          }
+          .phase-progress-text {
+            color: #E5E7EB;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+          }
+          .stat-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 6px;
+            min-width: 40px;
+          }
+          .stat-chip.completed {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+          }
+          .stat-chip.in-progress {
+            background: rgba(0, 217, 255, 0.15);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+          }
+          .stat-chip.pending {
+            background: rgba(107, 114, 128, 0.15);
+            border: 1px solid rgba(107, 114, 128, 0.3);
+          }
+          .chip-num {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
             font-weight: 700;
+            line-height: 1;
           }
-
-          .phase-info {
+          .stat-chip.completed .chip-num { color: #10B981; }
+          .stat-chip.in-progress .chip-num { color: #00D9FF; }
+          .stat-chip.pending .chip-num { color: #6B7280; }
+          .chip-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px;
+            color: #9CA3AF;
+            line-height: 1.2;
+          }
+          .stat-chip.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+          }
+          .stat-chip.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+          }
+          .stat-chip.clickable.completed:hover {
+            border-color: #10B981;
+            background: rgba(16, 185, 129, 0.25);
+          }
+          .stat-chip.clickable.in-progress:hover {
+            border-color: #00D9FF;
+            background: rgba(0, 217, 255, 0.25);
+          }
+          .stat-chip.clickable.pending:hover {
+            border-color: #6B7280;
+            background: rgba(107, 114, 128, 0.25);
+          }
+        `}
+      </style>
+      <style>
+        {`
+          .chip-popover .ant-popover-inner {
+            background: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+          }
+          .chip-popover .ant-popover-arrow::before {
+            background: #1F2937;
+          }
+          .chip-popover-title {
+            color: #E5E7EB;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+          }
+          .chip-popover-list {
+            min-width: 180px;
+            max-height: 240px;
+            overflow-y: auto;
+          }
+          .chip-popover-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #374151;
+          }
+          .chip-popover-item:last-child {
+            border-bottom: none;
+          }
+          .chip-popover-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 5px;
+          }
+          .chip-popover-name {
+            color: #E5E7EB;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
             flex: 1;
           }
-
-          .phase-title-row {
+          .chip-popover-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 2px;
+          }
+          .chip-popover-executor {
+            color: #9CA3AF;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 11px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
+          }
+          .chip-popover-task {
+            color: #6B7280;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 11px;
+            padding-left: 13px;
+          }
+          .chip-popover-dept {
+            color: #9CA3AF;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            background: rgba(156, 163, 175, 0.15);
+            padding: 1px 5px;
+            border-radius: 3px;
+          }
+          .chip-popover-empty {
+            color: #6B7280;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 12px;
+            text-align: center;
+            padding: 8px 0;
           }
 
-          .phase-name {
-            color: #E5E7EB !important;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 20px;
-            font-weight: 600;
-            margin: 0;
-          }
-
-          .phase-status {
+          .phase-alert {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+            padding: 4px 10px;
+            background: rgba(0, 217, 255, 0.08);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 6px;
+            margin: 6px 0;
+            flex-shrink: 0;
           }
-
-          .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            animation: pulse 2s ease-in-out infinite;
+          .alert-icon {
+            color: #00D9FF;
+            font-size: 10px;
+            animation: pulse 2s infinite;
           }
-
           @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
           }
-
-          .status-tag {
-            font-family: 'Share Tech Mono', monospace;
+          .alert-text {
+            color: #D1D5DB;
+            font-family: 'Rajdhani', sans-serif;
             font-size: 12px;
+          }
+          .alert-text strong {
+            color: #00D9FF;
+          }
+          .alert-warning {
+            color: #F59E0B;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            margin-left: auto;
+          }
+
+          .phase-node {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 4px 0;
+            flex-shrink: 0;
+          }
+          .phase-node:hover {
+            opacity: 0.9;
+          }
+          .node-number {
+            width: 28px;
+            height: 28px;
+            background: rgba(0, 217, 255, 0.1);
+            border: 2px solid #00D9FF;
             border-radius: 8px;
-          }
-
-          .phase-meta {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-          }
-
-          .mode-tag {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
-            border-radius: 6px;
-          }
-
-          .duration-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .duration-icon {
-            color: var(--warning-orange);
-            font-size: 16px;
-          }
-
-          .duration-text {
-            color: var(--text-secondary);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 12px;
-          }
-
-          .progress-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-direction: row;
-          }
-
-          .progress-bar {
-            flex: 1;
-            min-width: 100px;
-            height: 6px;
-            border-radius: 3px;
-          }
-
-          .progress-text {
-            color: var(--text-secondary);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 12px;
-            white-space: nowrap;
-          }
-
-          .stages-container {
-            position: relative;
-          }
-
-          .connection-line {
-            position: absolute;
-            left: 25px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: linear-gradient(180deg, var(--primary-cyan), var(--primary-purple));
-            opacity: 0.3;
-          }
-
-          .stage-section {
-            margin-left: 60px;
-            margin-bottom: 24px;
-            position: relative;
-          }
-
-          .stage-section::before {
-            content: '';
-            position: absolute;
-            left: -35px;
-            top: 25px;
-            width: 35px;
-            height: 2px;
-            background: var(--primary-cyan);
-            opacity: 0.5;
-          }
-
-          .stage-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 16px;
-          }
-
-          .stage-number {
-            width: 40px;
-            height: 40px;
-            background: rgba(147, 51, 234, 0.1);
-            border: 2px solid var(--primary-purple);
-            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: #00D9FF;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            flex-shrink: 0;
           }
-
-          .stage-info {
+          .node-content {
             flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
           }
-
-          .stage-title-row {
+          .node-name {
+            color: #E5E7EB;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+          }
+          .node-meta {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
+            gap: 6px;
+          }
+          .meta-tag {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px;
+            padding: 0 5px;
+            border-radius: 3px;
+            line-height: 16px;
+          }
+          .meta-tag.mode {
+            background: rgba(147, 51, 234, 0.2);
+            color: #C084FC;
+            border: 1px solid rgba(147, 51, 234, 0.3);
+          }
+          .node-status-tag {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            border-radius: 4px;
+            line-height: 18px;
+            padding: 0 6px;
+          }
+          .node-progress {
+            width: 70px;
+            flex-shrink: 0;
           }
 
-          .stage-name {
+          .stages-flow {
+            display: flex;
+            align-items: flex-start;
+            gap: 4px;
+            padding: 6px 0 2px 38px;
+            flex-wrap: wrap;
+            overflow-x: auto;
+          }
+
+          .stage-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 4px;
+          }
+
+          .flow-arrow {
+            color: #4B5563;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            padding-top: 6px;
+          }
+
+          .stage-node {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding: 6px 10px;
+            background: rgba(26, 31, 58, 0.8);
+            border: 1px solid #2D3748;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 90px;
+          }
+          .stage-node:hover {
+            border-color: #00D9FF;
+            background: rgba(0, 217, 255, 0.05);
+          }
+          .stage-header-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .stage-summary {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            color: #9CA3AF;
+          }
+          .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+          }
+          .summary-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+          }
+          .summary-dot.completed {
+            background: #10B981;
+          }
+          .summary-divider {
+            color: #4B5563;
+          }
+          .stage-progress-bar {
+            height: 3px;
+            background: #2D3748;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 2px;
+          }
+          .stage-progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+          }
+          .stage-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+          }
+          .stage-label {
+            color: #D1D5DB;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+          }
+          .stage-status-badge {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #fff;
+            flex-shrink: 0;
+          }
+
+          .tasks-row {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: 2px;
+          }
+
+          .task-node {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 1px 6px;
+            background: rgba(26, 31, 58, 0.5);
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+          }
+          .task-node:hover {
+            border-color: #00D9FF;
+            background: rgba(0, 217, 255, 0.05);
+          }
+          .task-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            flex-shrink: 0;
+          }
+          .task-label {
+            color: #9CA3AF;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 11px;
+          }
+          .task-dept {
+            color: #6B7280;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px;
+            padding: 0 4px;
+            background: rgba(107, 114, 128, 0.15);
+            border-radius: 3px;
+          }
+          .task-timeout-icon {
+            color: #EF4444;
+            font-size: 10px;
+            animation: blink 1s infinite;
+          }
+          @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+          }
+          .task-node.task-timeout {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.08);
+          }
+          .task-op-count {
+            background: rgba(147, 51, 234, 0.3);
+            color: #C084FC;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 3px;
+            line-height: 14px;
+          }
+
+          .phase-connector {
+            height: 6px;
+            border-left: 2px dashed #2D3748;
+            margin-left: 20px;
+          }
+
+          .node-detail-drawer .ant-drawer-header {
+            background: #1A1F3A;
+            border-bottom: 1px solid #2D3748;
+          }
+          .node-detail-drawer .ant-drawer-body {
+            background: #0A0E27;
+            padding: 20px;
+          }
+          .node-detail-drawer .ant-descriptions-item-label {
+            background: rgba(0, 217, 255, 0.05) !important;
+            color: #9CA3AF !important;
+          }
+          .node-detail-drawer .ant-descriptions-item-content {
+            background: #1A1F3A !important;
             color: #E5E7EB !important;
+          }
+
+          .drawer-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .drawer-type {
+            background: rgba(0, 217, 255, 0.1);
+            color: #00D9FF;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+          }
+          .drawer-name {
+            color: #E5E7EB;
             font-family: 'Rajdhani', sans-serif;
             font-size: 18px;
             font-weight: 600;
-            margin: 0;
           }
 
-          .stage-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .status-indicator-small {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            animation: pulse 2s ease-in-out infinite;
-          }
-
-          .status-tag-small {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
-            border-radius: 6px;
-          }
-
-          .stage-meta {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-
-          .mode-tag-small {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
-            border-radius: 4px;
-          }
-
-          .progress-info-small {
-            display: flex;
-            align-items: center;
-            min-width: 80px;
-            flex: 1;
-          }
-
-          .progress-bar-small {
-            height: 4px;
-            border-radius: 2px;
-          }
-
-          .tasks-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
-          }
-
-          .task-card {
-            background: rgba(26, 31, 58, 0.5);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 16px;
-            position: relative;
-            transition: all 0.3s ease;
-          }
-
-          .task-card:hover {
-            border-color: var(--primary-cyan);
-            transform: translateY(-2px);
-          }
-
-          .task-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 3px;
-            height: 100%;
-            background: var(--primary-cyan);
-            border-radius: 12px 0 0 12px;
-          }
-
-          .task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-          }
-
-          .task-number {
-            width: 30px;
-            height: 30px;
-            background: rgba(0, 217, 255, 0.1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .number-text-small {
-            color: var(--primary-cyan);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-          }
-
-          .task-status-icon {
-            font-size: 20px;
-          }
-
-          .task-content {
-            margin-bottom: 12px;
-          }
-
-          .task-name {
-            color: #E5E7EB !important;
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            margin: 0 0 8px 0;
-          }
-
-          .task-tags {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-          }
-
-          .task-mode-tag {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
-            border-radius: 4px;
-          }
-
-          .task-status-tag {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
-            border-radius: 4px;
-          }
-
-          .task-department {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-          }
-
-          .department-icon {
-            color: var(--primary-purple);
-            font-size: 14px;
-          }
-
-          .department-text {
-            color: var(--text-secondary);
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 12px;
-          }
-
-          .task-time {
-            display: flex;
-            gap: 12px;
-          }
-
-          .time-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-          }
-
-          .time-icon {
-            color: var(--text-secondary);
-            font-size: 12px;
-          }
-
-          .time-text {
-            color: var(--text-secondary);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px;
-          }
-
-          .operations-container {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border-color);
-          }
-
-          .operations-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-          }
-
-          .operations-label {
-            color: var(--text-secondary);
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 12px;
-          }
-
-          .operations-count {
-            color: var(--primary-cyan);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 12px;
-          }
-
-          .operations-list {
+          .detail-content {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 20px;
           }
-
-          .operation-item {
+          .detail-status-row {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            background: rgba(26, 31, 58, 0.3);
-            border-radius: 6px;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #1A1F3A;
+            border-radius: 12px;
+            border: 1px solid #2D3748;
+          }
+          .detail-label {
+            color: #9CA3AF;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+          }
+          .detail-desc {
+            margin-top: 4px;
           }
 
-          .operation-status-dot {
+          .detail-children {
+            margin-top: 4px;
+          }
+          .detail-section-title {
+            color: #00D9FF;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #2D3748;
+          }
+          .detail-child-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #1A1F3A;
+            border: 1px solid #2D3748;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .detail-child-item:hover {
+            border-color: #00D9FF;
+          }
+          .child-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
+            flex-shrink: 0;
           }
-
-          .operation-name {
-            color: var(--text-primary);
+          .child-name {
+            color: #E5E7EB;
             font-family: 'Rajdhani', sans-serif;
-            font-size: 12px;
+            font-size: 14px;
             flex: 1;
           }
-
-          .operation-status-tag {
+          .child-tag {
             font-family: 'Share Tech Mono', monospace;
             font-size: 10px;
             border-radius: 4px;
           }
 
-          .loading-container {
-            padding: 60px;
-            text-align: center;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-          }
-
-          .loading-grid {
-            position: relative;
-            height: 60px;
-            margin-bottom: 24px;
-          }
-
-          .grid-line {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: rgba(0, 217, 255, 0.3);
-            animation: loading-line 2s ease-in-out infinite;
-          }
-
-          .grid-line:nth-child(2) {
-            top: 30%;
-            animation-delay: 0.5s;
-          }
-
-          @keyframes loading-line {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.8; }
-          }
-
-          .loading-content {
-            text-align: center;
-          }
-
-          .loading-icon {
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 217, 255, 0.1);
-            border-radius: 50%;
-            display: inline-flex;
+          .detail-operation-item {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            color: var(--primary-cyan);
-            margin-bottom: 16px;
-            animation: loading-rotate 2s linear infinite;
+            gap: 10px;
+            padding: 8px 12px;
+            background: rgba(26, 31, 58, 0.7);
+            border: 1px solid #2D3748;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
           }
-
-          @keyframes loading-rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+          .detail-operation-item:hover {
+            border-color: #9333EA;
           }
-
-          .loading-text {
-            color: var(--primary-cyan);
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 16px;
-          }
-
-          .empty-container {
-            padding: 60px;
-            text-align: center;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-          }
-
-          .empty-icon {
-            width: 80px;
-            height: 80px;
-            background: rgba(0, 217, 255, 0.1);
+          .op-dot {
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: var(--primary-cyan);
-            margin-bottom: 24px;
+            flex-shrink: 0;
           }
-
-          .empty-desc {
-            color: var(--text-secondary);
+          .op-name {
+            color: #D1D5DB;
             font-family: 'Rajdhani', sans-serif;
-            font-size: 14px;
-            margin-bottom: 24px;
+            font-size: 13px;
+            flex: 1;
           }
-
-          .action-button {
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
-            border: none;
-            color: var(--dark-bg);
-            font-family: 'Rajdhani', sans-serif;
-            font-weight: 600;
-            letter-spacing: 1px;
-            padding: 12px 32px;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-          }
-
-          .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 217, 255, 0.4);
-          }
-
-          @media (max-width: 768px) {
-            .workflow-header {
-              flex-direction: column;
-              gap: 16px;
-            }
-
-            .tasks-grid {
-              grid-template-columns: 1fr;
-            }
-
-            .phase-header,
-            .stage-header {
-              flex-direction: column;
-              gap: 12px;
-            }
+          .op-duration {
+            color: #9CA3AF;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
           }
         `}
       </style>

@@ -53,6 +53,9 @@ export interface StepExecution {
   updated_at: string
   drill?: DrillInstance
   assignee?: User
+  phase_name?: string
+  stage_name?: string
+  task_name?: string
 }
 
 export interface MessageLog {

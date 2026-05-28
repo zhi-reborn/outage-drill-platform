@@ -53,6 +53,10 @@ func (r *OperationRepository) UpdateStatus(id uint, status string) error {
 	return r.db.Model(&model.Operation{}).Where("id = ?", id).Update("status", status).Error
 }
 
+func (r *OperationRepository) UpdateExecutor(id uint, executorID *uint) error {
+	return r.db.Model(&model.Operation{}).Where("id = ?", id).Update("executor_id", executorID).Error
+}
+
 func (r *OperationRepository) Delete(id uint) error {
 	return r.db.Delete(&model.Operation{}, id).Error
 }
