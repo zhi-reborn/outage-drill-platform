@@ -64,3 +64,14 @@ func (r *ExecutionRepository) AssignStep(executionID uint, assigneeID uint) erro
 func (r *ExecutionRepository) DeleteByDrillID(drillID uint) error {
 	return r.db.Where("drill_id = ?", drillID).Delete(&model.StepExecution{}).Error
 }
+
+func (r *ExecutionRepository) FindNextPendingByDrillID(drillID uint, afterOrder int) (*model.StepExecution, error) {
+	var execution model.StepExecution
+	err := r.db.Where("drill_id = ? AND status = ? AND step_order > ?", drillID, "pending", afterOrder).
+		Order("step_order").
+		First(&execution).Error
+	if err != nil {
+		return nil, err
+	}
+	return &execution, nil
+}

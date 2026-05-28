@@ -85,27 +85,77 @@ func (s *ExecutionService) GetPhaseByID(id uint) (*model.Phase, error) {
 }
 
 func (s *ExecutionService) syncTaskStatus(execution *model.StepExecution) {
-	// 同步 task 状态
-	if execution.TaskID != nil && s.taskRepo != nil {
-		task, err := s.taskRepo.FindByID(*execution.TaskID)
-		if err != nil {
-			log.Printf("[WARN] Failed to find task %d for sync: %v", *execution.TaskID, err)
-		} else if task.Status != execution.Status {
-			s.taskRepo.UpdateStatus(task.ID, execution.Status)
-			log.Printf("[DEBUG] Synced task %d status to %s", task.ID, execution.Status)
-		}
-		s.cascadeStageStatus(task.StageID)
-	}
-	// 同步 operation 状态
 	if execution.OperationID != nil && s.operationRepo != nil {
 		operation, err := s.operationRepo.FindByID(*execution.OperationID)
 		if err != nil {
-			log.Printf("[WARN] Failed to find operation %d for sync: %v", *execution.OperationID, err)
-		} else if operation.Status != execution.Status {
-			s.operationRepo.UpdateStatus(operation.ID, execution.Status)
-			log.Printf("[DEBUG] Synced operation %d status to %s", operation.ID, execution.Status)
+			log.Printf("[WARN] Failed to find operation %d: %v", *execution.OperationID, err)
+			return
 		}
+		if operation.Status != execution.Status {
+			s.operationRepo.UpdateStatus(operation.ID, execution.Status)
+			log.Printf("[SYNC] Operation %d status → %s", operation.ID, execution.Status)
+		}
+		s.cascadeTaskStatus(operation.TaskID)
+	} else if execution.TaskID != nil && s.taskRepo != nil {
+		task, err := s.taskRepo.FindByID(*execution.TaskID)
+		if err != nil {
+			log.Printf("[WARN] Failed to find task %d: %v", *execution.TaskID, err)
+			return
+		}
+		if task.Status != execution.Status {
+			s.taskRepo.UpdateStatus(task.ID, execution.Status)
+			log.Printf("[SYNC] Task %d status → %s", task.ID, execution.Status)
+		}
+		s.cascadeStageStatus(task.StageID)
 	}
+}
+
+func (s *ExecutionService) cascadeTaskStatus(taskID uint) {
+	if s.operationRepo == nil || s.taskRepo == nil {
+		return
+	}
+	ops, err := s.operationRepo.FindByTaskID(taskID)
+	if err != nil || len(ops) == 0 {
+		return
+	}
+	statuses := make([]string, len(ops))
+	for i, op := range ops {
+		statuses[i] = op.Status
+	}
+	newStatus := aggregateStatus(statuses)
+
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return
+	}
+	if task.Status != newStatus {
+		s.taskRepo.UpdateStatus(taskID, newStatus)
+		log.Printf("[CASCADE] Task %d status → %s", taskID, newStatus)
+		s.cascadeStageStatus(task.StageID)
+	}
+}
+
+func (s *ExecutionService) autoStartNextStep(drillID uint, currentOrder int) {
+	if s.executionRepo == nil {
+		return
+	}
+	nextExec, err := s.executionRepo.FindNextPendingByDrillID(drillID, currentOrder)
+	if err != nil || nextExec == nil {
+		return
+	}
+
+	log.Printf("[AUTO-START] Auto-starting next step: execution %d (order %d, name: %s)", nextExec.ID, nextExec.StepOrder, nextExec.StepName)
+
+	now := time.Now()
+	nextExec.StartTime = &now
+	nextExec.Status = "in_progress"
+	if err := s.executionRepo.Update(nextExec); err != nil {
+		log.Printf("[WARN] Failed to auto-start execution %d: %v", nextExec.ID, err)
+		return
+	}
+
+	s.syncTaskStatus(nextExec)
+	s.broadcastStepUpdate(nextExec, "auto_started")
 }
 
 func aggregateStatus(statuses []string) string {
@@ -332,6 +382,8 @@ func (s *ExecutionService) CompleteExecution(id uint) error {
 	}
 
 	s.syncTaskStatus(execution)
+	// 自动开始下一个步骤
+	s.autoStartNextStep(execution.DrillID, execution.StepOrder)
 	s.broadcastStepUpdate(execution, "completed")
 	return nil
 }

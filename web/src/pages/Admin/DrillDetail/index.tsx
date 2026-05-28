@@ -255,16 +255,15 @@ const DrillDetail: React.FC = () => {
       render: (_: any, record: StepExecution) => (
         <Space wrap>
           {record.status === 'pending' && (
-            <Popconfirm title="确定开始执行此节点?" onConfirm={() => handleStartExecution(record.id)}>
-              <Button 
-                icon={<PlayCircleOutlined />} 
-                type="primary" 
-                size="small"
-                style={{ marginRight: 8, marginBottom: 8 }}
-              >
-                开始
-              </Button>
-            </Popconfirm>
+            <Button 
+              icon={<PlayCircleOutlined />} 
+              type="primary" 
+              size="small"
+              onClick={() => handleStartExecution(record.id)}
+              style={{ marginRight: 8, marginBottom: 8 }}
+            >
+              开始
+            </Button>
           )}
           {record.status === 'in_progress' && (
             <>
@@ -276,19 +275,18 @@ const DrillDetail: React.FC = () => {
               >
                 暂停
               </Button>
-              <Popconfirm title="确定完成此节点?" onConfirm={() => handleCompleteExecution(record.id)}>
-                <Button 
-                  icon={<CheckCircleOutlined />} 
-                  type="primary" 
-                  size="small"
-                  style={{ marginRight: 8, marginBottom: 8 }}
-                >
-                  完成
-                </Button>
-              </Popconfirm>
+              <Button 
+                icon={<CheckCircleOutlined />} 
+                type="primary" 
+                size="small"
+                onClick={() => handleCompleteExecution(record.id)}
+                style={{ marginRight: 8, marginBottom: 8 }}
+              >
+                完成
+              </Button>
             </>
           )}
-          {record.status === 'paused' && (
+          {(record.status as string) === 'paused' && (
             <>
               <Button 
                 icon={<PlayCircleOutlined />} 
@@ -299,16 +297,15 @@ const DrillDetail: React.FC = () => {
               >
                 恢复
               </Button>
-              <Popconfirm title="确定完成此节点?" onConfirm={() => handleCompleteExecution(record.id)}>
-                <Button 
-                  icon={<CheckCircleOutlined />} 
-                  type="primary" 
-                  size="small"
-                  style={{ marginRight: 8, marginBottom: 8 }}
-                >
-                  完成
-                </Button>
-              </Popconfirm>
+              <Button 
+                icon={<CheckCircleOutlined />} 
+                type="primary" 
+                size="small"
+                onClick={() => handleCompleteExecution(record.id)}
+                style={{ marginRight: 8, marginBottom: 8 }}
+              >
+                完成
+              </Button>
             </>
           )}
           <Button 

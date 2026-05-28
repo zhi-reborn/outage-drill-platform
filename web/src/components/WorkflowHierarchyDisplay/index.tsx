@@ -173,6 +173,9 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
   }
 
   const phases = template.phases || []
+  const totalStages = phases.reduce((acc, phase) => 
+    acc + (phase.stages || []).length, 0
+  )
   const totalTasks = phases.reduce((acc, phase) => 
     acc + (phase.stages || []).reduce((stageAcc, stage) => 
       stageAcc + (stage.tasks || []).length, 0
@@ -199,6 +202,11 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
               <span className="stat-item">
                 <span className="stat-label">阶段</span>
                 <span className="stat-value">{phases.length}</span>
+              </span>
+              <span className="stat-divider">|</span>
+              <span className="stat-item">
+                <span className="stat-label">环节</span>
+                <span className="stat-value">{totalStages}</span>
               </span>
               <span className="stat-divider">|</span>
               <span className="stat-item">
@@ -659,45 +667,63 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
 
           .hierarchy-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 10px 20px;
-            background: #1A1F3A;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #1A1F3A 0%, #151A30 100%);
             border: 1px solid #2D3748;
             border-radius: 12px;
             margin-bottom: 12px;
             position: relative;
             flex-shrink: 0;
+            overflow: hidden;
+            gap: 20px;
           }
           .hierarchy-header::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 2px;
-            background: linear-gradient(90deg, #00D9FF, #9333EA);
+            background: linear-gradient(90deg, transparent, #00D9FF, #9333EA, transparent);
             border-radius: 12px 12px 0 0;
+          }
+          .hierarchy-header::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(ellipse at top left, rgba(0, 217, 255, 0.04), transparent 60%);
+            pointer-events: none;
           }
           .header-left {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            min-width: 0;
           }
           .template-icon {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, #00D9FF, #9333EA);
-            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #00D9FF 0%, #9333EA 100%);
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 22px;
             color: #0A0E27;
             flex-shrink: 0;
+            box-shadow: 0 4px 16px rgba(0, 217, 255, 0.25);
           }
           .header-info {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            align-items: flex-start;
           }
           .template-name {
             color: #00D9FF !important;
@@ -705,77 +731,121 @@ const WorkflowHierarchyDisplay: React.FC<WorkflowHierarchyDisplayProps> = ({
             font-size: 15px !important;
             font-weight: 700;
             margin: 0 !important;
-            line-height: 1.2 !important;
-            text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+            line-height: 1.3 !important;
+            text-shadow: 0 0 12px rgba(0, 217, 255, 0.4);
+            letter-spacing: 0.3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
           }
           .header-stats {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
           }
           .stat-item {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
+            padding: 3px 10px;
+            background: rgba(0, 217, 255, 0.06);
+            border: 1px solid rgba(0, 217, 255, 0.12);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+          }
+          .stat-item:hover {
+            background: rgba(0, 217, 255, 0.12);
+            border-color: rgba(0, 217, 255, 0.25);
+            transform: translateY(-1px);
           }
           .stat-label {
             color: #9CA3AF;
             font-family: 'Share Tech Mono', monospace;
-            font-size: 10px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           .stat-value {
             color: #00D9FF;
             font-family: 'Rajdhani', sans-serif;
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700;
+            min-width: 18px;
+            text-align: center;
           }
           .stat-divider {
-            color: #2D3748;
-            font-size: 12px;
+            display: none;
           }
           .header-right {
             display: flex;
             align-items: center;
             gap: 12px;
+            position: relative;
+            z-index: 1;
+            flex-shrink: 0;
+          }
+          .progress-ring {
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           .progress-num {
             color: #00D9FF;
             font-family: 'Share Tech Mono', monospace;
             font-size: 11px;
+            font-weight: 600;
           }
           .refresh-btn {
-            background: transparent;
-            border: 1px solid #00D9FF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 217, 255, 0.05);
+            border: 1px solid rgba(0, 217, 255, 0.3);
             color: #00D9FF;
             font-family: 'Rajdhani', sans-serif;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             border-radius: 6px;
-            padding: 2px 10px;
-            height: 28px;
+            padding: 0 14px;
+            height: 32px;
+            transition: all 0.2s ease;
+            cursor: pointer;
           }
           .refresh-btn:hover {
-            background: rgba(0, 217, 255, 0.1);
+            background: rgba(0, 217, 255, 0.12);
+            border-color: #00D9FF;
+            box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+            transform: translateY(-1px);
+          }
+          .refresh-btn:active {
+            transform: translateY(0);
           }
           .header-expand-toggle {
             display: flex;
             align-items: center;
-            gap: 5px;
-            background: rgba(0, 217, 255, 0.08);
+            justify-content: center;
+            gap: 6px;
+            background: rgba(0, 217, 255, 0.05);
             border: 1px solid rgba(0, 217, 255, 0.25);
             color: #00D9FF;
             font-family: 'Rajdhani', sans-serif;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             border-radius: 6px;
-            padding: 2px 10px;
-            height: 28px;
+            padding: 0 14px;
+            height: 32px;
             cursor: pointer;
             transition: all 0.2s ease;
           }
           .header-expand-toggle:hover {
-            background: rgba(0, 217, 255, 0.18);
+            background: rgba(0, 217, 255, 0.12);
             border-color: #00D9FF;
+            transform: translateY(-1px);
+          }
+          .header-expand-toggle:active {
+            transform: translateY(0);
           }
           .header-expand-toggle span {
             line-height: 1;
